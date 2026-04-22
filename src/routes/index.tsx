@@ -324,10 +324,13 @@ function LumeFitApp() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showTopMenu, setShowTopMenu] = useState(false);
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareMode, setShareMode] = useState<"general" | "weight">("general");
   const [isGeneratingShareImage, setIsGeneratingShareImage] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>("pt");
+  const [appTheme, setAppTheme] = useState<AppTheme>("light");
   const [showMotivationNotification, setShowMotivationNotification] = useState(false);
   const [completedTrainingPhases, setCompletedTrainingPhases] = useState<
     Record<TrainingPhaseKey, boolean>
@@ -408,6 +411,8 @@ function LumeFitApp() {
           setShowMotivationNotification(true);
         }
       }
+      if (parsed.appLanguage === "pt" || parsed.appLanguage === "en") setAppLanguage(parsed.appLanguage);
+      if (parsed.appTheme === "light" || parsed.appTheme === "dark") setAppTheme(parsed.appTheme);
       setView(parsed.onboardingDone ? "home" : "setup");
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -426,6 +431,8 @@ function LumeFitApp() {
         completedTrainingPhases,
         firstUseAt,
         previousWeight,
+        appLanguage,
+        appTheme,
       }),
     );
   }, [
@@ -437,6 +444,8 @@ function LumeFitApp() {
     completedTrainingPhases,
     firstUseAt,
     previousWeight,
+    appLanguage,
+    appTheme,
   ]);
 
   useEffect(() => {

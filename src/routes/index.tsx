@@ -48,6 +48,8 @@ export const Route = createFileRoute("/")({
 type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
+type AppLanguage = "pt" | "en";
+type AppTheme = "light" | "dark";
 
 type Profile = {
   name: string;
@@ -77,6 +79,8 @@ type PersistedState = {
   firstUseAt?: string;
   previousWeight?: number;
   lastSeenAt?: string;
+  appLanguage?: AppLanguage;
+  appTheme?: AppTheme;
 };
 
 type GeneratedPlan = {
@@ -128,14 +132,24 @@ const trainingPhases = [
   },
 ] as const;
 
-const ANALYSIS_MESSAGES = [
-  "🔍 A identificar os alimentos...",
-  "🌿 A reconhecer ingredientes locais...",
-  "⚖️ A estimar as porções...",
-  "🔥 A calcular as calorias...",
-  "💪 A analisar macronutrientes...",
-  "✨ A preparar o relatório...",
-];
+const ANALYSIS_MESSAGES: Record<AppLanguage, string[]> = {
+  pt: [
+    "🔍 A identificar os alimentos...",
+    "🌿 A reconhecer ingredientes locais...",
+    "⚖️ A estimar as porções...",
+    "🔥 A calcular as calorias...",
+    "💪 A analisar macronutrientes...",
+    "✨ A preparar o relatório...",
+  ],
+  en: [
+    "🔍 Identifying foods...",
+    "🌿 Recognizing ingredients...",
+    "⚖️ Estimating portions...",
+    "🔥 Calculating calories...",
+    "💪 Analyzing macros...",
+    "✨ Preparing your report...",
+  ],
+};
 
 const confettiOffsets = [
   "3%",

@@ -603,164 +603,183 @@ function LumeFitApp() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
-      {view === "splash" && (
-        <section className={shellClass}>
-          <div className="glass-card mt-6 rounded-xl p-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-accent-3/30">
-              <Flame className="h-8 w-8 text-brand-accent-2" />
-            </div>
-            <h1 className="text-4xl font-bold">LUMEfit</h1>
-            <p className="mt-3 text-sm text-muted-foreground">O teu caminho para uma vida mais leve</p>
-            <div className="mt-8 space-y-3">
-              <Button
-                onClick={() => setView("setup")}
-                className="h-11 w-full bg-brand-accent-1 text-primary-foreground hover:scale-[1.02] hover:bg-brand-accent-2"
-              >
-                Começar Agora
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setView("setup")}
-                className="h-11 w-full bg-glass-muted hover:scale-[1.02]"
-              >
-                Já tenho conta
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
       {view === "setup" && (
         <section className={shellClass}>
-          <div className="glass-card rounded-xl p-5">
-            <p className="text-xs text-muted-foreground">Configuração {setupStep}/3</p>
-            {setupStep === 1 && (
-              <div className="mt-4 space-y-4">
-                <h2 className="text-xl font-semibold">Dados pessoais</h2>
-                <Input
-                  value={profile.name}
-                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="O teu nome"
-                  className="bg-glass-muted"
-                />
-                <Input
-                  type="number"
-                  value={profile.age}
-                  onChange={(e) => setProfile((p) => ({ ...p, age: Number(e.target.value) || 0 }))}
-                  placeholder="Idade"
-                  className="bg-glass-muted"
-                />
-                <select
-                  value={profile.city}
-                  onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-glass-border bg-glass-muted px-3 text-sm"
-                >
-                  {cities.map((city) => (
-                    <option key={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+          <div className="glass-card rounded-[24px] p-0">
+            <div className="flex items-center justify-between border-b border-glass-border/70 px-4 py-3">
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
+              >
+                ✕
+              </button>
+              <p className="text-xl font-bold text-brand-accent-2">LumeFit</p>
+              <span className="h-10 w-10" />
+            </div>
 
-            {setupStep === 2 && (
-              <div className="mt-4 space-y-5">
-                <h2 className="text-xl font-semibold">Medidas corporais</h2>
-                <div>
-                  <p className="text-sm">Peso atual: {profile.weight} kg</p>
-                  <Slider
-                    min={40}
-                    max={140}
-                    value={[profile.weight]}
-                    onValueChange={([value]) => setProfile((p) => ({ ...p, weight: value }))}
-                  />
-                </div>
-                <div>
-                  <p className="text-sm">Altura: {profile.height} cm</p>
-                  <Slider
-                    min={140}
-                    max={195}
-                    value={[profile.height]}
-                    onValueChange={([value]) => setProfile((p) => ({ ...p, height: value }))}
-                  />
-                </div>
-                <Input
-                  type="number"
-                  value={profile.targetWeight}
-                  onChange={(e) => setProfile((p) => ({ ...p, targetWeight: Number(e.target.value) || 0 }))}
-                  placeholder="Peso alvo (kg)"
-                  className="bg-glass-muted"
-                />
+            <div className="space-y-5 p-4">
+              <div className="text-center">
+                <h1 className="text-5xl font-bold leading-tight text-foreground">
+                  Seu corpo, sua <span className="text-brand-accent-2">jornada.</span>
+                </h1>
+                <p className="mt-4 text-lg text-muted-foreground">
+                  Vamos criar um plano que respeita seu ritmo, sua rotina e sua essência.
+                </p>
               </div>
-            )}
 
-            {setupStep === 3 && (
-              <div className="mt-4 space-y-4">
-                <h2 className="text-xl font-semibold">Objetivos</h2>
-                <select
-                  value={profile.weeklyGoal}
-                  onChange={(e) => setProfile((p) => ({ ...p, weeklyGoal: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-glass-border bg-glass-muted px-3 text-sm"
-                >
-                  {weeklyGoals.map((goal) => (
-                    <option key={goal}>{goal}</option>
-                  ))}
-                </select>
-                <select
-                  value={profile.activityLevel}
-                  onChange={(e) => setProfile((p) => ({ ...p, activityLevel: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-glass-border bg-glass-muted px-3 text-sm"
-                >
-                  {activityLevels.map((activity) => (
-                    <option key={activity}>{activity}</option>
-                  ))}
-                </select>
-                <div className="rounded-lg border border-glass-border bg-glass-muted p-4">
-                  <p className="text-xs text-muted-foreground">Meta diária estimada</p>
-                  <p className="text-2xl font-bold text-brand-accent-2">
-                    {calcGoal(
-                      profile.weight,
-                      profile.height,
-                      profile.age,
-                      profile.activityLevel,
-                      profile.weeklyGoal,
-                    )}{" "}
-                    kcal
+              <article className="glass-card rounded-[20px] p-3">
+                <div className="relative overflow-hidden rounded-[18px] border border-glass-border/80 bg-gradient-to-b from-brand-accent-1/75 to-brand-accent-2/95 p-6 text-center text-primary-foreground">
+                  <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-brand-accent-2/60 shadow-[inset_0_0_0_1px_var(--color-glass-border)]">
+                    <div>
+                      <p className="text-5xl">💚</p>
+                      <p className="mt-2 text-4xl font-semibold">Saúde</p>
+                      <p className="text-lg opacity-90">bem-estar</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm tracking-[0.18em] text-primary-foreground/90">
+                    ● IA ATIVA • ANALISANDO BIOTIPO
                   </p>
                 </div>
-              </div>
-            )}
+              </article>
 
-            <div className="mt-6 flex gap-2">
-              <Button
-                variant="outline"
-                disabled={setupStep === 1}
-                onClick={() => setSetupStep((s) => Math.max(1, s - 1))}
-                className="flex-1"
-              >
-                Voltar
-              </Button>
-              {setupStep < 3 ? (
-                <Button onClick={() => setSetupStep((s) => Math.min(3, s + 1))} className="flex-1">
-                  Continuar
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Peso (kg)</p>
+                  <Input
+                    type="number"
+                    value={profile.weight}
+                    onChange={(e) => setProfile((p) => ({ ...p, weight: Number(e.target.value) || 0 }))}
+                    className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Altura (cm)</p>
+                  <Input
+                    type="number"
+                    value={profile.height}
+                    onChange={(e) => setProfile((p) => ({ ...p, height: Number(e.target.value) || 0 }))}
+                    className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Sua idade</p>
+                <div className="glass-card flex items-center justify-between rounded-2xl px-3 py-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setProfile((p) => ({ ...p, age: Math.max(16, p.age - 1) }))}
+                    className="h-12 w-12 rounded-xl"
+                  >
+                    −
+                  </Button>
+                  <p className="text-4xl font-bold">{profile.age}</p>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setProfile((p) => ({ ...p, age: Math.min(75, p.age + 1) }))}
+                    className="h-12 w-12 rounded-xl"
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "sedentario" as const, icon: Sofa },
+                    { key: "moderado" as const, icon: Footprints },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const active = setupActivity === item.key;
+                    return (
+                      <button
+                        type="button"
+                        key={item.key}
+                        onClick={() => setSetupActivity(item.key)}
+                        className={`glass-card rounded-2xl p-4 text-left ${
+                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]" : ""
+                        }`}
+                      >
+                        <Icon className="h-6 w-6 text-brand-accent-2" />
+                        <p className="mt-3 text-2xl font-semibold">{onboardingActivityMap[item.key].title}</p>
+                        <p className="text-sm text-muted-foreground">{onboardingActivityMap[item.key].subtitle}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSetupActivity("intenso")}
+                  className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left ${
+                    setupActivity === "intenso"
+                      ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]"
+                      : ""
+                  }`}
+                >
+                  <Dumbbell className="h-6 w-6 text-brand-accent-2" />
+                  <div>
+                    <p className="text-2xl font-semibold">{onboardingActivityMap.intenso.title}</p>
+                    <p className="text-sm text-muted-foreground">{onboardingActivityMap.intenso.subtitle}</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <Button onClick={handleGeneratePlan} className="h-14 w-full rounded-[24px] text-lg">
+                  <Sparkles className="h-5 w-5" />
+                  Gerar meu Plano com IA
                 </Button>
-              ) : (
-                <Button onClick={() => {
-                  setProfile((prev) => ({
-                    ...prev,
-                    calorieGoal: calcGoal(
-                      prev.weight,
-                      prev.height,
-                      prev.age,
-                      prev.activityLevel,
-                      prev.weeklyGoal,
-                    ),
-                  }));
-                  setView("home");
-                }} className="flex-1 bg-brand-accent-1 hover:bg-brand-accent-2">
-                  Guardar
-                </Button>
-              )}
+                <p className="px-2 text-center text-sm text-muted-foreground">
+                  Ao continuar, nossa IA processará seus dados para criar um plano nutricional e de treinos personalizado.
+                </p>
+              </div>
             </div>
+
+            {showPlanPresentation && generatedPlan ? (
+              <div className="border-t border-glass-border/70 bg-glass/70 p-4">
+                <article className="glass-card rounded-[20px] p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Apresentação do plano</p>
+                  <h3 className="mt-2 text-2xl font-bold text-brand-accent-2">Plano diário recomendado</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{generatedPlan.summary}</p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-brand-accent-1/25 bg-glass px-3 py-4">
+                      <p className="text-xs text-muted-foreground">Meta calórica</p>
+                      <p className="text-3xl font-bold">{generatedPlan.calorieGoal}</p>
+                      <p className="text-xs text-muted-foreground">kcal/dia</p>
+                    </div>
+                    <div className="rounded-2xl border border-brand-accent-1/25 bg-glass px-3 py-4">
+                      <p className="text-xs text-muted-foreground">Hidratação diária</p>
+                      <p className="text-3xl font-bold">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
+                      <p className="text-xs text-muted-foreground">água/dia</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
+                      <p className="text-xs text-muted-foreground">Proteína</p>
+                      <p className="text-lg font-bold">{generatedPlan.macroGoals.protein}g</p>
+                    </div>
+                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
+                      <p className="text-xs text-muted-foreground">Carboidrato</p>
+                      <p className="text-lg font-bold">{generatedPlan.macroGoals.carbs}g</p>
+                    </div>
+                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
+                      <p className="text-xs text-muted-foreground">Gordura</p>
+                      <p className="text-lg font-bold">{generatedPlan.macroGoals.fat}g</p>
+                    </div>
+                  </div>
+
+                  <Button onClick={applyGeneratedPlan} className="mt-5 h-12 w-full rounded-2xl">
+                    Aplicar metas
+                  </Button>
+                </article>
+              </div>
+            ) : null}
           </div>
         </section>
       )}

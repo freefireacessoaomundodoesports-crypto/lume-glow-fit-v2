@@ -1232,7 +1232,7 @@ function LumeFitApp() {
     setWaterIntakeMl(0);
     setOnboardingDone(true);
     setShowPlanPresentation(false);
-    setToastMessage("✅ Metas aplicadas com sucesso.");
+    setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
     setView("home");
     setTimeout(() => setShowToast(false), 2400);
@@ -2249,13 +2249,13 @@ function LumeFitApp() {
 
       {view !== "setup" && (
         <nav className="frosted-nav fixed bottom-3 left-1/2 z-20 flex w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-between rounded-xl px-2 py-2 sm:max-w-md">
-          {[
-            { key: "home", label: "Home", icon: Home },
-            { key: "refeicoes", label: "Refeições", icon: UtensilsCrossed },
-            { key: "progresso", label: "Progresso", icon: Flame },
-            { key: "treinos", label: "Treinos", icon: Dumbbell },
-            { key: "perfil", label: "Perfil", icon: CircleUserRound },
-          ].map((item) => {
+            {[
+              { key: "home", label: t.navHome, icon: Home },
+              { key: "refeicoes", label: t.navMeals, icon: UtensilsCrossed },
+              { key: "progresso", label: t.navProgress, icon: Flame },
+              { key: "treinos", label: t.navWorkouts, icon: Dumbbell },
+              { key: "perfil", label: t.navProfile, icon: CircleUserRound },
+            ].map((item) => {
             const Icon = item.icon;
             const active = view === item.key;
             return (
@@ -2306,14 +2306,14 @@ function LumeFitApp() {
 
       {showMotivationNotification ? (
         <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-2xl border border-brand-accent-1/40 bg-glass p-4 shadow-[0_10px_30px_oklch(0.64_0.12_152_/_25%)] sm:max-w-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">Lembrete LUMEfit</p>
-          <p className="mt-1 text-sm font-medium">Guerreira, não se esqueça que tens um sonho para alcançar ✨</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">{t.notificationTitle}</p>
+          <p className="mt-1 text-sm font-medium">{t.notificationBody}</p>
           <Button
             size="sm"
             className="mt-3 w-full rounded-xl"
             onClick={() => setShowMotivationNotification(false)}
           >
-            Entendi
+            {t.understood}
           </Button>
         </div>
       ) : null}

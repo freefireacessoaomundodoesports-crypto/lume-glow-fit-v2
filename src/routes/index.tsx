@@ -2367,23 +2367,82 @@ function LumeFitApp() {
         </div>
       ) : null}
 
+      {showSettingsSheet ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{t.settingsTitle}</h3>
+              <button
+                type="button"
+                onClick={() => setShowSettingsSheet(false)}
+                className="rounded-lg border border-glass-border px-2 py-1 text-sm"
+              >
+                {t.close}
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-xl border border-glass-border bg-glass p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsTheme}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button
+                    variant={appTheme === "light" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppTheme("light")}
+                  >
+                    {t.settingsThemeLight}
+                  </Button>
+                  <Button
+                    variant={appTheme === "dark" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppTheme("dark")}
+                  >
+                    {t.settingsThemeDark}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-glass-border bg-glass p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsLanguage}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button
+                    variant={appLanguage === "pt" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppLanguage("pt")}
+                  >
+                    {t.languagePortuguese}
+                  </Button>
+                  <Button
+                    variant={appLanguage === "en" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppLanguage("en")}
+                  >
+                    {t.languageEnglish}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showShareSheet ? (
         <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
           <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Compartilhar progresso</h3>
+              <h3 className="text-lg font-semibold">{t.shareProgress}</h3>
               <button
                 type="button"
                 onClick={() => setShowShareSheet(false)}
                 className="rounded-lg border border-glass-border px-2 py-1 text-sm"
               >
-                Fechar
+                {t.close}
               </button>
             </div>
 
             <Button className="h-11 w-full rounded-xl" onClick={handleGenerateShareImage} disabled={isGeneratingShareImage}>
               <Sparkles className="h-4 w-4" />
-              {isGeneratingShareImage ? "A gerar imagem..." : "Gerar imagem para partilha"}
+              {isGeneratingShareImage ? t.shareGenerating : t.shareGenerated}
             </Button>
 
             {shareImageUrl ? (
@@ -2403,14 +2462,12 @@ function LumeFitApp() {
                     <Music2 className="h-4 w-4" /> TikTok
                   </Button>
                   <Button variant="secondary" className="rounded-xl" onClick={handleDownloadShareImage}>
-                    <Download className="h-4 w-4" /> Baixar
+                    <Download className="h-4 w-4" /> {appLanguage === "en" ? "Download" : "Baixar"}
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidratação e identidade visual LUMEfit.
-              </p>
+              <p className="mt-3 text-sm text-muted-foreground">{t.shareHint}</p>
             )}
           </div>
         </div>

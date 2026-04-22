@@ -530,7 +530,7 @@ function LumeFitApp() {
     }, 80);
 
     const msgTick = setInterval(() => {
-      setAnalysisMessageIndex((prev) => (prev + 1) % ANALYSIS_MESSAGES.length);
+      setAnalysisMessageIndex((prev) => (prev + 1) % localizedAnalysisMessages.length);
     }, 1200);
 
     const finish = setTimeout(() => {
@@ -2191,7 +2191,7 @@ function LumeFitApp() {
             </div>
 
             <p key={analysisMessageIndex} className="mt-4 text-sm text-primary animate-fade-in">
-              {ANALYSIS_MESSAGES[analysisMessageIndex]}
+              {localizedAnalysisMessages[analysisMessageIndex]}
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-accent-3/40">
               <div

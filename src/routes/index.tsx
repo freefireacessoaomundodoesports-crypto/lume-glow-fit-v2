@@ -826,6 +826,45 @@ function LumeFitApp() {
     setIsGeneratingShareImage(true);
     try {
       const isWeightMode = shareMode === "weight";
+      const imageUserName = profile.name || (appLanguage === "en" ? "Champion" : "Campeã");
+      const text =
+        appLanguage === "en"
+          ? {
+              subtitle: "Consistency that transforms",
+              hero: `Warrior ${imageUserName}, keep going strong!`,
+              progressA: "DAILY",
+              progressB: "PROGRESS",
+              calories: "Calories",
+              weightSubtitle: "Real weight evolution",
+              weightHero: `Congrats ${imageUserName}, your progress is real!`,
+              weightA: "WEIGHT",
+              weightB: "PROGRESS",
+              prev: "Previous weight",
+              current: "Current weight",
+              target: "Target weight",
+              weightGoal: "Weight loss goal",
+              completed: "completed",
+              motivationA: "Every workout and every meal gets you closer to your dream. ✨",
+              motivationB: `Keep it up, ${imageUserName} — your effort is paying off! ✨`,
+            }
+          : {
+              subtitle: "Consistência que transforma",
+              hero: `Guerreira ${imageUserName}, segue firme no teu foco!`,
+              progressA: "PROGRESSO",
+              progressB: "DIÁRIO",
+              calories: "Calorias",
+              weightSubtitle: "Evolução real de peso",
+              weightHero: `Parabéns ${imageUserName}, a tua perda de peso é progresso real!`,
+              weightA: "PESO",
+              weightB: "EM PROGRESSO",
+              prev: "Peso anterior",
+              current: "Peso atual",
+              target: "Peso desejado",
+              weightGoal: "Meta de perda de peso",
+              completed: "concluído",
+              motivationA: "Cada treino e cada refeição aproxima-te do teu sonho. ✨",
+              motivationB: `Continua assim, ${imageUserName} — o teu esforço está a dar resultado! ✨`,
+            };
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
       canvas.height = 1920;
@@ -949,23 +988,23 @@ function LumeFitApp() {
         ctx.fillText("LUMEfit", 270, 332);
         ctx.fillStyle = "#4f6d57";
         ctx.font = "500 32px Poppins, sans-serif";
-        ctx.fillText("Consistência que transforma", 270, 380);
+        ctx.fillText(text.subtitle, 270, 380);
 
         ctx.fillStyle = "#163b27";
         ctx.font = "500 36px Poppins, sans-serif";
-        ctx.fillText(`Guerreira ${profile.name || "Campeã"}, segue firme no teu foco!`, 150, 490);
+        ctx.fillText(text.hero, 150, 490);
 
         ctx.fillStyle = "#1b5537";
         ctx.font = "800 78px Poppins, sans-serif";
-        ctx.fillText("PROGRESSO", 150, 620);
+        ctx.fillText(text.progressA, 150, 620);
         ctx.font = "800 64px Poppins, sans-serif";
-        ctx.fillText("DIÁRIO", 150, 690);
+        ctx.fillText(text.progressB, 150, 690);
 
         const caloriesProgress = Math.min((consumedCalories / Math.max(profile.calorieGoal, 1)) * 100, 100);
 
         ctx.fillStyle = "#315e46";
         ctx.font = "600 34px Poppins, sans-serif";
-        ctx.fillText("Calorias", 150, 780);
+        ctx.fillText(text.calories, 150, 780);
         ctx.font = "500 30px Poppins, sans-serif";
         ctx.fillText(`${consumedCalories} / ${profile.calorieGoal} kcal`, 150, 826);
         drawProgressBar(150, 848, 780, 34, caloriesProgress, "#3E9C5E");
@@ -1006,10 +1045,10 @@ function LumeFitApp() {
 
         ctx.fillStyle = "#2f6e4a";
         ctx.font = "500 30px Poppins, sans-serif";
-        ctx.fillText("Cada treino e cada refeição aproxima-te do teu sonho. ✨", 150, 1545);
+        ctx.fillText(text.motivationA, 150, 1545);
 
         setShareImageUrl(canvas.toDataURL("image/png"));
-        setToastMessage("Imagem gerada com sucesso ✨");
+        setToastMessage(t.toastImageGenerated);
         setShowToast(true);
         setTimeout(() => setShowToast(false), 1800);
         return;
@@ -1074,18 +1113,17 @@ function LumeFitApp() {
       ctx.fillText("LUMEfit", 270, 332);
       ctx.fillStyle = "#4f6d57";
       ctx.font = "500 32px Poppins, sans-serif";
-      ctx.fillText("Evolução real de peso", 270, 380);
+      ctx.fillText(text.weightSubtitle, 270, 380);
 
-      const userName = profile.name || "Campeã";
       ctx.fillStyle = "#163b27";
       ctx.font = "500 36px Poppins, sans-serif";
-      ctx.fillText(`Parabéns ${userName}, a tua perda de peso é progresso real!`, 150, 490);
+      ctx.fillText(text.weightHero, 150, 490);
 
       ctx.fillStyle = "#1b5537";
       ctx.font = "800 78px Poppins, sans-serif";
-      ctx.fillText("PESO", 150, 620);
+      ctx.fillText(text.weightA, 150, 620);
       ctx.font = "800 64px Poppins, sans-serif";
-      ctx.fillText("EM PROGRESSO", 150, 690);
+      ctx.fillText(text.weightB, 150, 690);
 
       const chartX = 150;
       const chartY = 770;
@@ -1145,11 +1183,11 @@ function LumeFitApp() {
 
       ctx.font = "600 30px Poppins, sans-serif";
       ctx.fillStyle = "#dc2626";
-      ctx.fillText(`Peso anterior: ${previousWeight.toFixed(1)}kg`, 150, 1285);
+      ctx.fillText(`${text.prev}: ${previousWeight.toFixed(1)}kg`, 150, 1285);
       ctx.fillStyle = "#16a34a";
-      ctx.fillText(`Peso atual: ${profile.weight.toFixed(1)}kg`, 150, 1345);
+      ctx.fillText(`${text.current}: ${profile.weight.toFixed(1)}kg`, 150, 1345);
       ctx.fillStyle = "#315e46";
-      ctx.fillText(`Peso desejado: ${profile.targetWeight.toFixed(1)}kg`, 150, 1405);
+      ctx.fillText(`${text.target}: ${profile.targetWeight.toFixed(1)}kg`, 150, 1405);
 
       const targetDistance = Math.max(previousWeight - profile.targetWeight, 0.1);
       const achieved = Math.max(previousWeight - profile.weight, 0);
@@ -1157,21 +1195,21 @@ function LumeFitApp() {
 
       ctx.fillStyle = "#315e46";
       ctx.font = "600 32px Poppins, sans-serif";
-      ctx.fillText("Meta de perda de peso", 150, 1488);
+      ctx.fillText(text.weightGoal, 150, 1488);
       ctx.font = "500 28px Poppins, sans-serif";
-      ctx.fillText(`${weightProgress.toFixed(0)}% concluído`, 150, 1532);
+      ctx.fillText(`${weightProgress.toFixed(0)}% ${text.completed}`, 150, 1532);
       drawProgressBar(150, 1558, 780, 30, weightProgress, "#16a34a");
 
       ctx.fillStyle = "#2f6e4a";
       ctx.font = "500 30px Poppins, sans-serif";
-      ctx.fillText(`Continua assim, ${userName} — o teu esforço está a dar resultado! ✨`, 150, 1630);
+      ctx.fillText(text.motivationB, 150, 1630);
 
       setShareImageUrl(canvas.toDataURL("image/png"));
-      setToastMessage("Imagem gerada com sucesso ✨");
+      setToastMessage(t.toastImageGenerated);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 1800);
     } catch {
-      setToastMessage("Não foi possível gerar a imagem agora.");
+      setToastMessage(t.toastImageFailed);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2200);
     } finally {

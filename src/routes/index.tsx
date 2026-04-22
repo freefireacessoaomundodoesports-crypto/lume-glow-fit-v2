@@ -1469,13 +1469,6 @@ function LumeFitApp() {
                 })}
               </div>
 
-              <div className="mt-4 grid gap-3">
-                {tips.map((tip) => (
-                  <article key={tip} className="glass-card rounded-xl p-3 text-sm">
-                    {tip}
-                  </article>
-                ))}
-              </div>
             </>
           )}
 

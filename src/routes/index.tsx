@@ -12,7 +12,6 @@ import {
   YAxis,
 } from "recharts";
 import {
-  Bell,
   Camera,
   Check,
   ChevronDown,
@@ -103,6 +102,24 @@ type RecentMealAnalysis = {
 };
 
 const STORAGE_KEY = "lumefit_state_v1";
+
+const trainingPhases = [
+  {
+    key: "primeiro-mes",
+    title: "PRIMEIRO MÊS",
+    instruction: "Repita uma vez o vídeo e treine de segunda, quarta, sexta, sábado",
+  },
+  {
+    key: "segundo-mes",
+    title: "SEGUNDO MÊS",
+    instruction: "Repita 3 vezes o vídeo e treine de segunda, quarta, sexta, sábado",
+  },
+  {
+    key: "terceiro-mes",
+    title: "TERCEIRO MÊS",
+    instruction: "Repita 4 vezes o vídeo e treine de segunda, quarta, sexta, sábado",
+  },
+] as const;
 
 const ANALYSIS_MESSAGES = [
   "🔍 A identificar os alimentos...",
@@ -260,6 +277,7 @@ function pickMockResult(seed?: string): MockMealResult {
 }
 
 function LumeFitApp() {
+  type TrainingPhaseKey = (typeof trainingPhases)[number]["key"];
   const [view, setView] = useState<ViewKey>("setup");
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [showPlanPresentation, setShowPlanPresentation] = useState(false);
@@ -284,6 +302,13 @@ function LumeFitApp() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [completedTrainingPhases, setCompletedTrainingPhases] = useState<
+    Record<TrainingPhaseKey, boolean>
+  >({
+    "primeiro-mes": false,
+    "segundo-mes": false,
+    "terceiro-mes": false,
+  });
 
   const [animatedKcal, setAnimatedKcal] = useState(0);
   const [animatedProtein, setAnimatedProtein] = useState(0);

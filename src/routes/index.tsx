@@ -777,7 +777,7 @@ function LumeFitApp() {
   };
 
   const handleShareChannel = async (channel: "whatsapp" | "telegram" | "tiktok") => {
-    if (shareImageUrl && navigator.share) {
+    if (shareImageUrl) {
       try {
         await handleNativeShare();
         return;

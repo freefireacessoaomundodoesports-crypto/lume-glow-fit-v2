@@ -41,7 +41,6 @@ import {
   quotes,
   tips,
   weeklyGoals,
-  weeklyPlan,
   type MealType,
   type MockMealResult,
 } from "@/lib/lumefit-data";
@@ -50,7 +49,7 @@ export const Route = createFileRoute("/")({
   component: LumeFitApp,
 });
 
-type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "plano" | "perfil";
+type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 

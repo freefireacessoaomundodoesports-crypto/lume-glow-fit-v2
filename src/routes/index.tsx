@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import * as RechartsPrimitive from "recharts";
 import {
   Camera,
   Check,
@@ -664,6 +663,17 @@ function LumeFitApp() {
                 <p className="mt-4 text-lg text-muted-foreground">
                   Vamos criar um plano que respeita seu ritmo, sua rotina e sua essência.
                 </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Nome</p>
+                <Input
+                  type="text"
+                  placeholder="Escreve o teu nome"
+                  value={profile.name}
+                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                  className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
+                />
               </div>
 
               <article className="glass-card rounded-[20px] p-3">
@@ -1353,24 +1363,25 @@ function LumeFitApp() {
             <>
               <div className="glass-card rounded-xl p-4">
                 <h2 className="text-lg font-semibold">Evolução do peso</h2>
-                <div className="mt-4 h-52">
-                  <RechartsPrimitive.ResponsiveContainer width="100%" height="100%">
-                    <RechartsPrimitive.LineChart data={weightHistory}>
-                      <RechartsPrimitive.CartesianGrid
-                        stroke="var(--color-glass-border)"
-                        strokeDasharray="3 3"
-                      />
-                      <RechartsPrimitive.XAxis dataKey="week" stroke="var(--color-muted-foreground)" />
-                      <RechartsPrimitive.YAxis stroke="var(--color-muted-foreground)" />
-                      <RechartsPrimitive.Tooltip />
-                      <RechartsPrimitive.Line
-                        type="monotone"
-                        dataKey="weight"
-                        stroke="var(--color-brand-accent-2)"
-                        strokeWidth={3}
-                      />
-                    </RechartsPrimitive.LineChart>
-                  </RechartsPrimitive.ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {weightHistory.map((point) => {
+                    const min = Math.min(...weightHistory.map((item) => item.weight));
+                    const max = Math.max(...weightHistory.map((item) => item.weight));
+                    const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
+
+                    return (
+                      <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">{point.week}</span>
+                        <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
+                            style={{ width: `${Math.max(14, pct)}%` }}
+                          />
+                        </div>
+                        <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="mt-2 text-sm text-brand-accent-2">Perdeste 2kg! 🎉</p>
               </div>
@@ -1392,18 +1403,24 @@ function LumeFitApp() {
 
               <div className="glass-card mt-4 rounded-xl p-4">
                 <h3 className="text-sm font-semibold">Resumo semanal</h3>
-                <div className="mt-3 h-44">
-                  <RechartsPrimitive.ResponsiveContainer width="100%" height="100%">
-                    <RechartsPrimitive.BarChart data={weeklyBars}>
-                      <RechartsPrimitive.XAxis dataKey="day" stroke="var(--color-muted-foreground)" />
-                      <RechartsPrimitive.Tooltip />
-                      <RechartsPrimitive.Bar
-                        dataKey="calories"
-                        fill="var(--color-brand-accent-1)"
-                        radius={[6, 6, 0, 0]}
-                      />
-                    </RechartsPrimitive.BarChart>
-                  </RechartsPrimitive.ResponsiveContainer>
+                <div className="mt-3 grid grid-cols-7 items-end gap-2">
+                  {weeklyBars.map((day) => {
+                    const min = Math.min(...weeklyBars.map((item) => item.calories));
+                    const max = Math.max(...weeklyBars.map((item) => item.calories));
+                    const pct = ((day.calories - min) / Math.max(max - min, 1)) * 100;
+
+                    return (
+                      <div key={day.day} className="flex flex-col items-center gap-2">
+                        <div className="flex h-28 w-full items-end rounded-lg bg-brand-accent-1/10 p-1">
+                          <div
+                            className="w-full rounded-md bg-gradient-to-t from-brand-accent-1 to-brand-accent-2"
+                            style={{ height: `${Math.max(22, pct)}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">{day.day}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1498,6 +1515,46 @@ function LumeFitApp() {
               </div>
 
               <div className="glass-card mt-4 rounded-xl p-4">
+                <h3 className="text-sm font-semibold">Resumo do teu plano</h3>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-glass-border bg-glass p-3">
+                    <p className="text-xs text-muted-foreground">Dias de uso</p>
+                    <p className="text-2xl font-bold">{usageDays} dias</p>
+                  </div>
+                  <div className="rounded-xl border border-glass-border bg-glass p-3">
+                    <p className="text-xs text-muted-foreground">Calorias/dia</p>
+                    <p className="text-2xl font-bold">{profile.calorieGoal}</p>
+                  </div>
+                  <div className="rounded-xl border border-glass-border bg-glass p-3">
+                    <p className="text-xs text-muted-foreground">Água/dia</p>
+                    <p className="text-2xl font-bold">{(profile.hydrationGoalMl / 1000).toFixed(1)}L</p>
+                  </div>
+                  <div className="rounded-xl border border-glass-border bg-glass p-3">
+                    <p className="text-xs text-muted-foreground">Peso atual vs desejado</p>
+                    <p className="text-lg font-bold">
+                      {profile.weight}kg <span className="text-muted-foreground">/ {profile.targetWeight}kg</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card mt-4 rounded-xl p-4">
+                <h3 className="text-sm font-semibold">Atualizar peso atual</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Dica: verifica o teu peso a cada mês para manter o plano preciso.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={profile.weight}
+                    onChange={(e) => setProfile((prev) => ({ ...prev, weight: Number(e.target.value) || 0 }))}
+                    className="h-11 rounded-xl bg-glass-muted"
+                  />
+                  <span className="text-sm text-muted-foreground">kg</span>
+                </div>
+              </div>
+
+              <div className="glass-card mt-4 rounded-xl p-4">
                 <h3 className="text-sm font-semibold">Definições</h3>
                 <div className="mt-3 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1513,6 +1570,16 @@ function LumeFitApp() {
 
               <div className="mt-4 grid gap-3">
                 <Button variant="secondary">Exportar Progresso</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setGeneratedPlan(generatePlan(profile));
+                    setShowPlanPresentation(false);
+                    setView("setup");
+                  }}
+                >
+                  Mudar o meu plano
+                </Button>
                 <Button
                   variant="destructive"
                   onClick={() => {

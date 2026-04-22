@@ -260,7 +260,7 @@ function pickMockResult(seed?: string): MockMealResult {
 }
 
 function LumeFitApp() {
-  const [view, setView] = useState<ViewKey>("splash");
+  const [view, setView] = useState<ViewKey>("setup");
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [showPlanPresentation, setShowPlanPresentation] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
@@ -448,12 +448,45 @@ function LumeFitApp() {
         : "var(--color-brand-danger)";
 
   const macros = {
-    protein: Math.min(profile.macroGoals.protein, (consumedCalories * 0.3) / 4),
-    carbs: Math.min(profile.macroGoals.carbs, (consumedCalories * 0.45) / 4),
-    fat: Math.min(profile.macroGoals.fat, (consumedCalories * 0.25) / 9),
+    protein: (consumedCalories * 0.3) / 4,
+    carbs: (consumedCalories * 0.45) / 4,
+    fat: (consumedCalories * 0.25) / 9,
+  };
+  const macroProgress = {
+    protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
+    carbs: Math.min((macros.carbs / Math.max(profile.macroGoals.carbs, 1)) * 100, 100),
+    fat: Math.min((macros.fat / Math.max(profile.macroGoals.fat, 1)) * 100, 100),
   };
 
   const hydrationPercent = Math.min(100, (waterIntakeMl / Math.max(profile.hydrationGoalMl, 1)) * 100);
+  const hydrationGoalLiters = (profile.hydrationGoalMl / 1000).toFixed(1);
+
+  const onboardingActivityMap: Record<
+    SetupActivityLevel,
+    { title: string; subtitle: string; profileValue: (typeof activityLevels)[number] }
+  > = {
+    sedentario: {
+      title: "Sedentário",
+      subtitle: "Trabalho sentado, pouco movimento.",
+      profileValue: "Fico muito em casa",
+    },
+    moderado: {
+      title: "Moderado",
+      subtitle: "Caminhadas leves, 2-3x na semana.",
+      profileValue: "Caminho um pouco",
+    },
+    intenso: {
+      title: "Intenso / Atleta",
+      subtitle: "Treinos pesados diários e rotina ativa.",
+      profileValue: "Sou moderadamente ativa",
+    },
+  };
+
+  const onboardingPreviewProfile: Profile = {
+    ...profile,
+    activityLevel: onboardingActivityMap[setupActivity].profileValue,
+  };
+  const onboardingPlanPreview = generatePlan(onboardingPreviewProfile);
 
   const mealsByType = entries.reduce<Record<MealType, MealEntry[]>>(
     (acc, item) => {
@@ -540,6 +573,30 @@ function LumeFitApp() {
     setExpandedIngredient(null);
     setAnalysisProgress(0);
     setAnalysisMessageIndex(0);
+  };
+
+  const handleGeneratePlan = () => {
+    const nextPlan = generatePlan(onboardingPreviewProfile);
+    setGeneratedPlan(nextPlan);
+    setShowPlanPresentation(true);
+  };
+
+  const applyGeneratedPlan = () => {
+    if (!generatedPlan) return;
+    setProfile((prev) => ({
+      ...prev,
+      activityLevel: onboardingActivityMap[setupActivity].profileValue,
+      calorieGoal: generatedPlan.calorieGoal,
+      hydrationGoalMl: generatedPlan.hydrationGoalMl,
+      macroGoals: generatedPlan.macroGoals,
+    }));
+    setWaterIntakeMl(0);
+    setOnboardingDone(true);
+    setShowPlanPresentation(false);
+    setToastMessage("✅ Metas aplicadas com sucesso.");
+    setShowToast(true);
+    setView("home");
+    setTimeout(() => setShowToast(false), 2400);
   };
 
   const currentMealTitle = mealLabels[selectedMeal];

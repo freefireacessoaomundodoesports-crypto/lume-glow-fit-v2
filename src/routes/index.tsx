@@ -358,6 +358,7 @@ function LumeFitApp() {
         recentAnalyses?: RecentMealAnalysis[];
         waterIntakeMl?: number;
         onboardingDone?: boolean;
+        completedTrainingPhases?: Record<TrainingPhaseKey, boolean>;
       };
 
       if (parsed.profile) {
@@ -377,6 +378,7 @@ function LumeFitApp() {
       if (typeof parsed.metric === "boolean") setMetric(parsed.metric);
       if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
       if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
+      if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
       if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
         setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
       }
@@ -397,9 +399,19 @@ function LumeFitApp() {
         recentAnalyses,
         waterIntakeMl,
         onboardingDone,
+        completedTrainingPhases,
       }),
     );
-  }, [profile, entries, notifications, metric, recentAnalyses, waterIntakeMl, onboardingDone]);
+  }, [
+    profile,
+    entries,
+    notifications,
+    metric,
+    recentAnalyses,
+    waterIntakeMl,
+    onboardingDone,
+    completedTrainingPhases,
+  ]);
 
   useEffect(() => {
     if (mealStage !== "analyzing") return;
@@ -1398,21 +1410,65 @@ function LumeFitApp() {
             </>
           )}
 
-          {view === "plano" && (
+          {view === "treinos" && (
             <>
-              <h2 className="mb-3 text-lg font-semibold">Plano semanal (1400 kcal)</h2>
-              <div className="space-y-3">
-                {weeklyPlan.map((item) => (
-                  <details key={item.day} className="glass-card rounded-xl p-4">
-                    <summary className="cursor-pointer font-medium">{item.day}</summary>
-                    <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                      {item.meals.map((meal) => (
-                        <li key={meal}>{meal}</li>
-                      ))}
-                    </ul>
-                  </details>
-                ))}
+              <h2 className="mb-3 text-lg font-semibold">Treinos</h2>
+
+              <article className="glass-card rounded-[20px] p-4">
+                <h3 className="text-sm font-semibold">Vídeo de Treino</h3>
+                <div className="mt-3 overflow-hidden rounded-[18px] border border-glass-border bg-glass">
+                  <div className="relative aspect-video w-full">
+                    <iframe
+                      title="Treino LUMEfit"
+                      src="https://www.youtube.com/embed/RTsNTYN4Jqs?rel=0&modestbranding=1"
+                      className="absolute inset-0 h-full w-full"
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </article>
+
+              <div className="mt-4 space-y-3">
+                {trainingPhases.map((phase) => {
+                  const isDone = completedTrainingPhases[phase.key];
+                  return (
+                    <article
+                      key={phase.key}
+                      className={`glass-card rounded-[20px] p-4 transition-all ${
+                        isDone ? "border-glass-border/70 bg-muted/35 opacity-70" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                            {phase.title}
+                          </p>
+                          <p className="mt-2 text-sm text-foreground">{phase.instruction}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isDone ? "secondary" : "default"}
+                          className="shrink-0 rounded-xl"
+                          onClick={() =>
+                            setCompletedTrainingPhases((prev) => ({
+                              ...prev,
+                              [phase.key]: !prev[phase.key],
+                            }))
+                          }
+                        >
+                          <Check className="h-4 w-4" />
+                          {isDone ? "Concluído" : "Certo"}
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
+
               <div className="mt-4 grid gap-3">
                 {tips.map((tip) => (
                   <article key={tip} className="glass-card rounded-xl p-3 text-sm">
@@ -1477,7 +1533,7 @@ function LumeFitApp() {
             { key: "home", label: "Home", icon: Home },
             { key: "refeicoes", label: "Refeições", icon: UtensilsCrossed },
             { key: "progresso", label: "Progresso", icon: Flame },
-            { key: "plano", label: "Plano", icon: Bell },
+            { key: "treinos", label: "Treinos", icon: Dumbbell },
             { key: "perfil", label: "Perfil", icon: CircleUserRound },
           ].map((item) => {
             const Icon = item.icon;

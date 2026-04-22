@@ -18,11 +18,15 @@ import {
   ChevronDown,
   ChevronUp,
   CircleUserRound,
+  Droplets,
   Flame,
   Home,
   ImagePlus,
+  Sofa,
   Sparkles,
   UtensilsCrossed,
+  Dumbbell,
+  Footprints,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +64,23 @@ type Profile = {
   weeklyGoal: string;
   activityLevel: string;
   calorieGoal: number;
+  hydrationGoalMl: number;
+  macroGoals: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+};
+
+type GeneratedPlan = {
+  calorieGoal: number;
+  hydrationGoalMl: number;
+  macroGoals: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  summary: string;
 };
 
 type MealEntry = {
@@ -173,6 +194,39 @@ function calcGoal(weight: number, height: number, age: number, activity: string,
     activity === "Fico muito em casa" ? 1.2 : activity === "Caminho um pouco" ? 1.35 : 1.5;
   const deficit = weeklyGoal.includes("1.5") ? 500 : weeklyGoal.includes("1kg") ? 350 : 220;
   return Math.max(1200, Math.round(bmr * activityFactor - deficit));
+}
+
+function calcHydrationGoal(weight: number, activity: string) {
+  const base = weight * 33;
+  const extra = activity === "Sou moderadamente ativa" ? 350 : activity === "Caminho um pouco" ? 200 : 100;
+  return Math.max(1600, Math.round((base + extra) / 50) * 50);
+}
+
+function calcMacroGoals(calorieGoal: number) {
+  return {
+    protein: Math.round((calorieGoal * 0.3) / 4),
+    carbs: Math.round((calorieGoal * 0.45) / 4),
+    fat: Math.round((calorieGoal * 0.25) / 9),
+  };
+}
+
+function generatePlan(profile: Profile): GeneratedPlan {
+  const calorieGoal = calcGoal(
+    profile.weight,
+    profile.height,
+    profile.age,
+    profile.activityLevel,
+    profile.weeklyGoal,
+  );
+  const hydrationGoalMl = calcHydrationGoal(profile.weight, profile.activityLevel);
+  const macroGoals = calcMacroGoals(calorieGoal);
+
+  return {
+    calorieGoal,
+    hydrationGoalMl,
+    macroGoals,
+    summary: `Plano diário estimado para ${profile.name || "ti"}: foco em défice calórico moderado, hidratação consistente e distribuição equilibrada de macros.`,
+  };
 }
 
 function getTodayLabel() {

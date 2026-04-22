@@ -647,7 +647,6 @@ function LumeFitApp() {
   const localizedMeals = localizedMealLabels[appLanguage];
   const localizedShortWeekdays = localizedWeekdays[appLanguage];
   const localizedQuoteList = localizedQuotes[appLanguage];
-  const localizedTipList = localizedTips[appLanguage];
   const localeTag = appLanguage === "en" ? "en-US" : "pt-MZ";
 
   const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
@@ -1221,7 +1220,7 @@ function LumeFitApp() {
     if (!shareImageUrl) return;
     const link = document.createElement("a");
     link.href = shareImageUrl;
-    link.download = `${shareMode === "weight" ? "lumefit-peso" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `${shareMode === "weight" ? (appLanguage === "en" ? "lumefit-weight" : "lumefit-peso") : appLanguage === "en" ? "lumefit-share" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
     link.click();
   };
 
@@ -1229,11 +1228,21 @@ function LumeFitApp() {
     if (!shareImageUrl || !navigator.share) return;
     const response = await fetch(shareImageUrl);
     const blob = await response.blob();
-    const file = new File([blob], shareMode === "weight" ? "lumefit-peso.png" : "lumefit-progresso.png", {
+    const file = new File(
+      [blob],
+      shareMode === "weight"
+        ? appLanguage === "en"
+          ? "lumefit-weight.png"
+          : "lumefit-peso.png"
+        : appLanguage === "en"
+          ? "lumefit-progress.png"
+          : "lumefit-progresso.png",
+      {
       type: "image/png",
-    });
+      },
+    );
     await navigator.share({
-      title: "LUMEfit",
+      title: t.appName,
       text: activeShareSummary,
       files: [file],
     });

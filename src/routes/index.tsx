@@ -784,7 +784,7 @@ function LumeFitApp() {
         </section>
       )}
 
-      {view !== "splash" && view !== "setup" && (
+      {view !== "setup" && (
         <section className={shellClass}>
           {(view === "home" || view === "refeicoes") && (
             <>
@@ -844,11 +844,61 @@ function LumeFitApp() {
                     ].map((macro) => (
                       <article key={macro.label} className="glass-card rounded-xl p-3">
                         <p className="text-xs text-muted-foreground">{macro.label}</p>
-                        <p className="my-2 text-sm font-medium">{Math.round(macro.value)}g</p>
-                        <Progress value={Math.min(macro.value, 100)} />
+                        <p className="my-2 text-sm font-medium">
+                          {Math.round(macro.value)}g / {profile.macroGoals[macro.label === "Proteínas" ? "protein" : macro.label === "Carboidratos" ? "carbs" : "fat"]}g
+                        </p>
+                        <Progress
+                          value={
+                            macro.label === "Proteínas"
+                              ? macroProgress.protein
+                              : macro.label === "Carboidratos"
+                                ? macroProgress.carbs
+                                : macroProgress.fat
+                          }
+                        />
                       </article>
                     ))}
                   </div>
+
+                  <article className="glass-card mt-4 rounded-[20px] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Hidratação de Hoje</h3>
+                      <span className="rounded-full border border-brand-accent-1/30 bg-brand-accent-1/15 px-3 py-1 text-xs font-medium">
+                        {(waterIntakeMl / 1000).toFixed(2)}L / {hydrationGoalLiters}L
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="water-bottle-shell">
+                        <div className="water-bottle-neck" />
+                        <div className="water-bottle-body">
+                          <div className="water-bottle-fill" style={{ height: `${hydrationPercent}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
+                        </p>
+                        <Progress value={hydrationPercent} />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            className="h-10 rounded-xl"
+                            onClick={() => setWaterIntakeMl((prev) => Math.min(profile.hydrationGoalMl, prev + 330))}
+                          >
+                            <Droplets className="h-4 w-4" />
+                            +330ml
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-10 rounded-xl"
+                            onClick={() => setWaterIntakeMl((prev) => Math.max(0, prev - 50))}
+                          >
+                            -50ml
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {(Object.keys(mealLabels) as MealType[]).map((meal) => {
@@ -1354,7 +1404,11 @@ function LumeFitApp() {
                     localStorage.removeItem(STORAGE_KEY);
                     setEntries([]);
                     setRecentAnalyses(initialRecentAnalyses);
-                    setView("splash");
+                    setWaterIntakeMl(0);
+                    setOnboardingDone(false);
+                    setShowPlanPresentation(false);
+                    setGeneratedPlan(null);
+                    setView("setup");
                   }}
                 >
                   Logout
@@ -1366,7 +1420,7 @@ function LumeFitApp() {
         </section>
       )}
 
-      {view !== "splash" && view !== "setup" && (
+      {view !== "setup" && (
         <nav className="frosted-nav fixed bottom-3 left-1/2 z-20 flex w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-between rounded-xl px-2 py-2 sm:max-w-md">
           {[
             { key: "home", label: "Home", icon: Home },

@@ -48,6 +48,8 @@ export const Route = createFileRoute("/")({
 type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
+type AppLanguage = "pt" | "en";
+type AppTheme = "light" | "dark";
 
 type Profile = {
   name: string;
@@ -77,6 +79,8 @@ type PersistedState = {
   firstUseAt?: string;
   previousWeight?: number;
   lastSeenAt?: string;
+  appLanguage?: AppLanguage;
+  appTheme?: AppTheme;
 };
 
 type GeneratedPlan = {
@@ -128,14 +132,24 @@ const trainingPhases = [
   },
 ] as const;
 
-const ANALYSIS_MESSAGES = [
-  "🔍 A identificar os alimentos...",
-  "🌿 A reconhecer ingredientes locais...",
-  "⚖️ A estimar as porções...",
-  "🔥 A calcular as calorias...",
-  "💪 A analisar macronutrientes...",
-  "✨ A preparar o relatório...",
-];
+const ANALYSIS_MESSAGES: Record<AppLanguage, string[]> = {
+  pt: [
+    "🔍 A identificar os alimentos...",
+    "🌿 A reconhecer ingredientes locais...",
+    "⚖️ A estimar as porções...",
+    "🔥 A calcular as calorias...",
+    "💪 A analisar macronutrientes...",
+    "✨ A preparar o relatório...",
+  ],
+  en: [
+    "🔍 Identifying foods...",
+    "🌿 Recognizing ingredients...",
+    "⚖️ Estimating portions...",
+    "🔥 Calculating calories...",
+    "💪 Analyzing macros...",
+    "✨ Preparing your report...",
+  ],
+};
 
 const confettiOffsets = [
   "3%",
@@ -156,6 +170,106 @@ const confettiOffsets = [
   "89%",
   "94%",
 ];
+
+const localizedMealLabels: Record<AppLanguage, Record<MealType, string>> = {
+  pt: mealLabels,
+  en: {
+    "pequeno-almoco": "🌅 Breakfast",
+    almoco: "☀️ Lunch",
+    jantar: "🌙 Dinner",
+    lanches: "🍎 Snacks",
+  },
+};
+
+const localizedWeekdays: Record<AppLanguage, string[]> = {
+  pt: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+
+const localizedQuotes: Record<AppLanguage, string[]> = {
+  pt: quotes,
+  en: [
+    "Every meal is a new chance to take care of yourself.",
+    "Small steps today, big results tomorrow.",
+    "You can do this — consistency is your superpower.",
+    "Lighter, stronger, more confident.",
+  ],
+};
+
+const localizedTips: Record<AppLanguage, string[]> = {
+  pt: tips,
+  en: [
+    "Cook with less oil — use 1 spoon instead of 3.",
+    "Drink 8 glasses of water daily 💧",
+    "Eat slowly — your brain needs 20 min to feel full.",
+    "Matapa is nutritious — watch peanut portion size.",
+  ],
+};
+
+const uiText = {
+  pt: {
+    appName: "LUMEfit",
+    menuShare: "Compartilhar",
+    menuSettings: "Configurações",
+    menuOpenAria: "Abrir menu",
+    settingsTitle: "Configurações",
+    settingsTheme: "Tema",
+    settingsThemeLight: "Modo claro",
+    settingsThemeDark: "Modo escuro",
+    settingsLanguage: "Idioma",
+    languagePortuguese: "Português",
+    languageEnglish: "Inglês",
+    close: "Fechar",
+    greeting: "Bom dia",
+    champion: "Campeã",
+    shareGenerated: "Gerar imagem para partilha",
+    shareGenerating: "A gerar imagem...",
+    shareProgress: "Compartilhar progresso",
+    shareHint:
+      "A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidratação e identidade visual LUMEfit.",
+    toastImageGenerated: "Imagem gerada com sucesso ✨",
+    toastImageFailed: "Não foi possível gerar a imagem agora.",
+    notificationTitle: "Lembrete LUMEfit",
+    notificationBody: "Guerreira, não se esqueça que tens um sonho para alcançar ✨",
+    understood: "Entendi",
+    navHome: "Home",
+    navMeals: "Refeições",
+    navProgress: "Progresso",
+    navWorkouts: "Treinos",
+    navProfile: "Perfil",
+  },
+  en: {
+    appName: "LUMEfit",
+    menuShare: "Share",
+    menuSettings: "Settings",
+    menuOpenAria: "Open menu",
+    settingsTitle: "Settings",
+    settingsTheme: "Theme",
+    settingsThemeLight: "Light mode",
+    settingsThemeDark: "Dark mode",
+    settingsLanguage: "Language",
+    languagePortuguese: "Portuguese",
+    languageEnglish: "English",
+    close: "Close",
+    greeting: "Good morning",
+    champion: "Champion",
+    shareGenerated: "Generate image to share",
+    shareGenerating: "Generating image...",
+    shareProgress: "Share progress",
+    shareHint:
+      "The image includes your name, goals, today intake, macros, hydration, and LUMEfit identity.",
+    toastImageGenerated: "Image generated successfully ✨",
+    toastImageFailed: "Could not generate the image right now.",
+    notificationTitle: "LUMEfit reminder",
+    notificationBody: "Warrior, don't forget you have a dream to achieve ✨",
+    understood: "Got it",
+    navHome: "Home",
+    navMeals: "Meals",
+    navProgress: "Progress",
+    navWorkouts: "Workouts",
+    navProfile: "Profile",
+  },
+} as const;
 
 function makePlaceholder(label: string, tone = "#dff7e7") {
   const encoded = encodeURIComponent(`
@@ -254,8 +368,8 @@ function generatePlan(profile: Profile): GeneratedPlan {
   };
 }
 
-function getTodayLabel() {
-  return new Date().toLocaleDateString("pt-MZ", {
+function getTodayLabel(locale: string) {
+  return new Date().toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -310,10 +424,13 @@ function LumeFitApp() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showTopMenu, setShowTopMenu] = useState(false);
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareMode, setShareMode] = useState<"general" | "weight">("general");
   const [isGeneratingShareImage, setIsGeneratingShareImage] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>("pt");
+  const [appTheme, setAppTheme] = useState<AppTheme>("light");
   const [showMotivationNotification, setShowMotivationNotification] = useState(false);
   const [completedTrainingPhases, setCompletedTrainingPhases] = useState<
     Record<TrainingPhaseKey, boolean>
@@ -394,6 +511,8 @@ function LumeFitApp() {
           setShowMotivationNotification(true);
         }
       }
+      if (parsed.appLanguage === "pt" || parsed.appLanguage === "en") setAppLanguage(parsed.appLanguage);
+      if (parsed.appTheme === "light" || parsed.appTheme === "dark") setAppTheme(parsed.appTheme);
       setView(parsed.onboardingDone ? "home" : "setup");
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -412,6 +531,8 @@ function LumeFitApp() {
         completedTrainingPhases,
         firstUseAt,
         previousWeight,
+        appLanguage,
+        appTheme,
       }),
     );
   }, [
@@ -423,6 +544,8 @@ function LumeFitApp() {
     completedTrainingPhases,
     firstUseAt,
     previousWeight,
+    appLanguage,
+    appTheme,
   ]);
 
   useEffect(() => {
@@ -472,7 +595,7 @@ function LumeFitApp() {
     }, 80);
 
     const msgTick = setInterval(() => {
-      setAnalysisMessageIndex((prev) => (prev + 1) % ANALYSIS_MESSAGES.length);
+      setAnalysisMessageIndex((prev) => (prev + 1) % localizedAnalysisMessages.length);
     }, 1200);
 
     const finish = setTimeout(() => {
@@ -519,7 +642,14 @@ function LumeFitApp() {
     };
   }, [activeResult, portionMultiplier, mealStage]);
 
-  const todayQuote = quotes[new Date().getDate() % quotes.length];
+  const t = uiText[appLanguage];
+  const localizedAnalysisMessages = ANALYSIS_MESSAGES[appLanguage];
+  const localizedMeals = localizedMealLabels[appLanguage];
+  const localizedShortWeekdays = localizedWeekdays[appLanguage];
+  const localizedQuoteList = localizedQuotes[appLanguage];
+  const localeTag = appLanguage === "en" ? "en-US" : "pt-MZ";
+
+  const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
   const consumedCalories = entries.reduce((sum, item) => sum + item.calories, 0);
   const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
@@ -588,17 +718,22 @@ function LumeFitApp() {
 
   const weeklyBars = useMemo(
     () =>
-      ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d, index) => {
+      localizedShortWeekdays.map((d, index) => {
         const base = profile.calorieGoal - 160 + index * 40;
         return { day: d, calories: base };
       }),
-    [profile.calorieGoal],
+    [localizedShortWeekdays, profile.calorieGoal],
   );
 
-  const currentTimestamp = new Date().toLocaleTimeString("pt-MZ", {
+  const currentTimestamp = new Date().toLocaleTimeString(localeTag, {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", appTheme === "dark");
+    document.documentElement.lang = appLanguage === "en" ? "en" : "pt-MZ";
+  }, [appLanguage, appTheme]);
 
   const shellClass =
     "mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5 text-foreground animate-fade-in sm:max-w-2xl";
@@ -629,7 +764,7 @@ function LumeFitApp() {
     setIsSavingMeal(true);
     setEntries((prev) => [nextEntry, ...prev]);
     setRecentAnalyses((prev) => {
-      const stamp = `Hoje, ${currentTimestamp}`;
+      const stamp = `${appLanguage === "en" ? "Today" : "Hoje"}, ${currentTimestamp}`;
       const first: RecentMealAnalysis = {
         id: crypto.randomUUID(),
         name: activeResult.mealName,
@@ -640,7 +775,12 @@ function LumeFitApp() {
       return [first, ...prev].slice(0, 5);
     });
 
-    setToastMessage(`✅ ${kcal} kcal adicionadas ao ${mealLabels[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase()}!`);
+    const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
+    setToastMessage(
+      appLanguage === "en"
+        ? `✅ ${kcal} kcal added to ${selectedMealName}!`
+        : `✅ ${kcal} kcal adicionadas ao ${selectedMealName}!`,
+    );
     setShowToast(true);
     setShowConfetti(true);
 
@@ -671,14 +811,59 @@ function LumeFitApp() {
     setShowPlanPresentation(true);
   };
 
-  const shareSummary = `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
-  const weightShareSummary = `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
+  const shareSummary =
+    appLanguage === "en"
+      ? `My consistency in LUMEfit 💚\n${profile.name || "User"}\nGoal: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nToday: ${consumedCalories} kcal and ${(waterIntakeMl / 1000).toFixed(2)}L`
+      : `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
+  const weightShareSummary =
+    appLanguage === "en"
+      ? `My weight evolution in LUMEfit 💚\n${profile.name || "User"}\nPrevious weight: ${previousWeight.toFixed(1)}kg\nCurrent weight: ${profile.weight.toFixed(1)}kg\nTarget weight: ${profile.targetWeight.toFixed(1)}kg`
+      : `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
   const activeShareSummary = shareMode === "weight" ? weightShareSummary : shareSummary;
 
   const handleGenerateShareImage = async () => {
     setIsGeneratingShareImage(true);
     try {
       const isWeightMode = shareMode === "weight";
+      const imageUserName = profile.name || (appLanguage === "en" ? "Champion" : "Campeã");
+      const text =
+        appLanguage === "en"
+          ? {
+              subtitle: "Consistency that transforms",
+              hero: `Warrior ${imageUserName}, keep going strong!`,
+              progressA: "DAILY",
+              progressB: "PROGRESS",
+              calories: "Calories",
+              weightSubtitle: "Real weight evolution",
+              weightHero: `Congrats ${imageUserName}, your progress is real!`,
+              weightA: "WEIGHT",
+              weightB: "PROGRESS",
+              prev: "Previous weight",
+              current: "Current weight",
+              target: "Target weight",
+              weightGoal: "Weight loss goal",
+              completed: "completed",
+              motivationA: "Every workout and every meal gets you closer to your dream. ✨",
+              motivationB: `Keep it up, ${imageUserName} — your effort is paying off! ✨`,
+            }
+          : {
+              subtitle: "Consistência que transforma",
+              hero: `Guerreira ${imageUserName}, segue firme no teu foco!`,
+              progressA: "PROGRESSO",
+              progressB: "DIÁRIO",
+              calories: "Calorias",
+              weightSubtitle: "Evolução real de peso",
+              weightHero: `Parabéns ${imageUserName}, a tua perda de peso é progresso real!`,
+              weightA: "PESO",
+              weightB: "EM PROGRESSO",
+              prev: "Peso anterior",
+              current: "Peso atual",
+              target: "Peso desejado",
+              weightGoal: "Meta de perda de peso",
+              completed: "concluído",
+              motivationA: "Cada treino e cada refeição aproxima-te do teu sonho. ✨",
+              motivationB: `Continua assim, ${imageUserName} — o teu esforço está a dar resultado! ✨`,
+            };
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
       canvas.height = 1920;
@@ -802,23 +987,23 @@ function LumeFitApp() {
         ctx.fillText("LUMEfit", 270, 332);
         ctx.fillStyle = "#4f6d57";
         ctx.font = "500 32px Poppins, sans-serif";
-        ctx.fillText("Consistência que transforma", 270, 380);
+        ctx.fillText(text.subtitle, 270, 380);
 
         ctx.fillStyle = "#163b27";
         ctx.font = "500 36px Poppins, sans-serif";
-        ctx.fillText(`Guerreira ${profile.name || "Campeã"}, segue firme no teu foco!`, 150, 490);
+        ctx.fillText(text.hero, 150, 490);
 
         ctx.fillStyle = "#1b5537";
         ctx.font = "800 78px Poppins, sans-serif";
-        ctx.fillText("PROGRESSO", 150, 620);
+        ctx.fillText(text.progressA, 150, 620);
         ctx.font = "800 64px Poppins, sans-serif";
-        ctx.fillText("DIÁRIO", 150, 690);
+        ctx.fillText(text.progressB, 150, 690);
 
         const caloriesProgress = Math.min((consumedCalories / Math.max(profile.calorieGoal, 1)) * 100, 100);
 
         ctx.fillStyle = "#315e46";
         ctx.font = "600 34px Poppins, sans-serif";
-        ctx.fillText("Calorias", 150, 780);
+        ctx.fillText(text.calories, 150, 780);
         ctx.font = "500 30px Poppins, sans-serif";
         ctx.fillText(`${consumedCalories} / ${profile.calorieGoal} kcal`, 150, 826);
         drawProgressBar(150, 848, 780, 34, caloriesProgress, "#3E9C5E");
@@ -859,10 +1044,10 @@ function LumeFitApp() {
 
         ctx.fillStyle = "#2f6e4a";
         ctx.font = "500 30px Poppins, sans-serif";
-        ctx.fillText("Cada treino e cada refeição aproxima-te do teu sonho. ✨", 150, 1545);
+        ctx.fillText(text.motivationA, 150, 1545);
 
         setShareImageUrl(canvas.toDataURL("image/png"));
-        setToastMessage("Imagem gerada com sucesso ✨");
+        setToastMessage(t.toastImageGenerated);
         setShowToast(true);
         setTimeout(() => setShowToast(false), 1800);
         return;
@@ -927,18 +1112,17 @@ function LumeFitApp() {
       ctx.fillText("LUMEfit", 270, 332);
       ctx.fillStyle = "#4f6d57";
       ctx.font = "500 32px Poppins, sans-serif";
-      ctx.fillText("Evolução real de peso", 270, 380);
+      ctx.fillText(text.weightSubtitle, 270, 380);
 
-      const userName = profile.name || "Campeã";
       ctx.fillStyle = "#163b27";
       ctx.font = "500 36px Poppins, sans-serif";
-      ctx.fillText(`Parabéns ${userName}, a tua perda de peso é progresso real!`, 150, 490);
+      ctx.fillText(text.weightHero, 150, 490);
 
       ctx.fillStyle = "#1b5537";
       ctx.font = "800 78px Poppins, sans-serif";
-      ctx.fillText("PESO", 150, 620);
+      ctx.fillText(text.weightA, 150, 620);
       ctx.font = "800 64px Poppins, sans-serif";
-      ctx.fillText("EM PROGRESSO", 150, 690);
+      ctx.fillText(text.weightB, 150, 690);
 
       const chartX = 150;
       const chartY = 770;
@@ -998,11 +1182,11 @@ function LumeFitApp() {
 
       ctx.font = "600 30px Poppins, sans-serif";
       ctx.fillStyle = "#dc2626";
-      ctx.fillText(`Peso anterior: ${previousWeight.toFixed(1)}kg`, 150, 1285);
+      ctx.fillText(`${text.prev}: ${previousWeight.toFixed(1)}kg`, 150, 1285);
       ctx.fillStyle = "#16a34a";
-      ctx.fillText(`Peso atual: ${profile.weight.toFixed(1)}kg`, 150, 1345);
+      ctx.fillText(`${text.current}: ${profile.weight.toFixed(1)}kg`, 150, 1345);
       ctx.fillStyle = "#315e46";
-      ctx.fillText(`Peso desejado: ${profile.targetWeight.toFixed(1)}kg`, 150, 1405);
+      ctx.fillText(`${text.target}: ${profile.targetWeight.toFixed(1)}kg`, 150, 1405);
 
       const targetDistance = Math.max(previousWeight - profile.targetWeight, 0.1);
       const achieved = Math.max(previousWeight - profile.weight, 0);
@@ -1010,21 +1194,21 @@ function LumeFitApp() {
 
       ctx.fillStyle = "#315e46";
       ctx.font = "600 32px Poppins, sans-serif";
-      ctx.fillText("Meta de perda de peso", 150, 1488);
+      ctx.fillText(text.weightGoal, 150, 1488);
       ctx.font = "500 28px Poppins, sans-serif";
-      ctx.fillText(`${weightProgress.toFixed(0)}% concluído`, 150, 1532);
+      ctx.fillText(`${weightProgress.toFixed(0)}% ${text.completed}`, 150, 1532);
       drawProgressBar(150, 1558, 780, 30, weightProgress, "#16a34a");
 
       ctx.fillStyle = "#2f6e4a";
       ctx.font = "500 30px Poppins, sans-serif";
-      ctx.fillText(`Continua assim, ${userName} — o teu esforço está a dar resultado! ✨`, 150, 1630);
+      ctx.fillText(text.motivationB, 150, 1630);
 
       setShareImageUrl(canvas.toDataURL("image/png"));
-      setToastMessage("Imagem gerada com sucesso ✨");
+      setToastMessage(t.toastImageGenerated);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 1800);
     } catch {
-      setToastMessage("Não foi possível gerar a imagem agora.");
+      setToastMessage(t.toastImageFailed);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2200);
     } finally {
@@ -1036,7 +1220,7 @@ function LumeFitApp() {
     if (!shareImageUrl) return;
     const link = document.createElement("a");
     link.href = shareImageUrl;
-    link.download = `${shareMode === "weight" ? "lumefit-peso" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `${shareMode === "weight" ? (appLanguage === "en" ? "lumefit-weight" : "lumefit-peso") : appLanguage === "en" ? "lumefit-share" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
     link.click();
   };
 
@@ -1044,11 +1228,21 @@ function LumeFitApp() {
     if (!shareImageUrl || !navigator.share) return;
     const response = await fetch(shareImageUrl);
     const blob = await response.blob();
-    const file = new File([blob], shareMode === "weight" ? "lumefit-peso.png" : "lumefit-progresso.png", {
+    const file = new File(
+      [blob],
+      shareMode === "weight"
+        ? appLanguage === "en"
+          ? "lumefit-weight.png"
+          : "lumefit-peso.png"
+        : appLanguage === "en"
+          ? "lumefit-progress.png"
+          : "lumefit-progresso.png",
+      {
       type: "image/png",
-    });
+      },
+    );
     await navigator.share({
-      title: "LUMEfit",
+      title: t.appName,
       text: activeShareSummary,
       files: [file],
     });
@@ -1085,13 +1279,13 @@ function LumeFitApp() {
     setWaterIntakeMl(0);
     setOnboardingDone(true);
     setShowPlanPresentation(false);
-    setToastMessage("✅ Metas aplicadas com sucesso.");
+    setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
     setView("home");
     setTimeout(() => setShowToast(false), 2400);
   };
 
-  const currentMealTitle = mealLabels[selectedMeal];
+  const currentMealTitle = localizedMeals[selectedMeal];
 
   return (
     <main className="relative min-h-screen overflow-hidden">
@@ -1102,13 +1296,13 @@ function LumeFitApp() {
             variant="outline"
             className="h-10 w-10 rounded-xl bg-glass"
             onClick={() => setShowTopMenu((prev) => !prev)}
-            aria-label="Abrir menu"
+            aria-label={t.menuOpenAria}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
           {showTopMenu ? (
-            <div className="glass-card mt-2 min-w-[180px] rounded-2xl p-2">
+            <div className="glass-card mt-2 min-w-[220px] rounded-2xl p-2">
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
@@ -1120,7 +1314,18 @@ function LumeFitApp() {
                 }}
               >
                 <Share2 className="h-4 w-4" />
-                Compartilhar
+                {t.menuShare}
+              </button>
+              <button
+                type="button"
+                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
+                onClick={() => {
+                  setShowSettingsSheet(true);
+                  setShowTopMenu(false);
+                }}
+              >
+                <Sparkles className="h-4 w-4" />
+                {t.menuSettings}
               </button>
             </div>
           ) : null}
@@ -1344,8 +1549,10 @@ function LumeFitApp() {
           {(view === "home" || view === "refeicoes") && (
             <>
               <header className="glass-card rounded-xl p-4">
-                <p className="text-sm text-muted-foreground">{getTodayLabel()}</p>
-                <h2 className="mt-1 text-2xl font-semibold">Bom dia, {profile.name || "Campeã"}! 🌟</h2>
+                <p className="text-sm text-muted-foreground">{getTodayLabel(localeTag)}</p>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  {t.greeting}, {profile.name || t.champion}! 🌟
+                </h2>
                 <p className="mt-2 text-sm text-muted-foreground">{todayQuote}</p>
               </header>
 
@@ -1463,7 +1670,7 @@ function LumeFitApp() {
                   </article>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    {(Object.keys(mealLabels) as MealType[]).map((meal) => {
+                    {(Object.keys(localizedMeals) as MealType[]).map((meal) => {
                       const mealEntries = mealsByType[meal];
                       const total = mealEntries.reduce((sum, item) => sum + item.calories, 0);
                       const isOpen = expandedMeals.includes(meal);
@@ -1484,7 +1691,7 @@ function LumeFitApp() {
                             }
                             className="w-full text-left"
                           >
-                            <p className="text-sm font-medium">{mealLabels[meal]}</p>
+                            <p className="text-sm font-medium">{localizedMeals[meal]}</p>
                             <p className="text-xs text-muted-foreground">{total} kcal</p>
                           </button>
                           <Button
@@ -1648,7 +1855,9 @@ function LumeFitApp() {
                           <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
                             {activeResult.cuisineTag}
                           </span>
-                          <span className="text-xs text-muted-foreground">Hoje, {currentTimestamp}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {appLanguage === "en" ? "Today" : "Hoje"}, {currentTimestamp}
+                          </span>
                         </div>
                       </article>
 
@@ -2089,13 +2298,13 @@ function LumeFitApp() {
 
       {view !== "setup" && (
         <nav className="frosted-nav fixed bottom-3 left-1/2 z-20 flex w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-between rounded-xl px-2 py-2 sm:max-w-md">
-          {[
-            { key: "home", label: "Home", icon: Home },
-            { key: "refeicoes", label: "Refeições", icon: UtensilsCrossed },
-            { key: "progresso", label: "Progresso", icon: Flame },
-            { key: "treinos", label: "Treinos", icon: Dumbbell },
-            { key: "perfil", label: "Perfil", icon: CircleUserRound },
-          ].map((item) => {
+            {[
+              { key: "home", label: t.navHome, icon: Home },
+              { key: "refeicoes", label: t.navMeals, icon: UtensilsCrossed },
+              { key: "progresso", label: t.navProgress, icon: Flame },
+              { key: "treinos", label: t.navWorkouts, icon: Dumbbell },
+              { key: "perfil", label: t.navProfile, icon: CircleUserRound },
+            ].map((item) => {
             const Icon = item.icon;
             const active = view === item.key;
             return (
@@ -2126,7 +2335,7 @@ function LumeFitApp() {
             </div>
 
             <p key={analysisMessageIndex} className="mt-4 text-sm text-primary animate-fade-in">
-              {ANALYSIS_MESSAGES[analysisMessageIndex]}
+              {localizedAnalysisMessages[analysisMessageIndex]}
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-accent-3/40">
               <div
@@ -2146,15 +2355,74 @@ function LumeFitApp() {
 
       {showMotivationNotification ? (
         <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-2xl border border-brand-accent-1/40 bg-glass p-4 shadow-[0_10px_30px_oklch(0.64_0.12_152_/_25%)] sm:max-w-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">Lembrete LUMEfit</p>
-          <p className="mt-1 text-sm font-medium">Guerreira, não se esqueça que tens um sonho para alcançar ✨</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">{t.notificationTitle}</p>
+          <p className="mt-1 text-sm font-medium">{t.notificationBody}</p>
           <Button
             size="sm"
             className="mt-3 w-full rounded-xl"
             onClick={() => setShowMotivationNotification(false)}
           >
-            Entendi
+            {t.understood}
           </Button>
+        </div>
+      ) : null}
+
+      {showSettingsSheet ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{t.settingsTitle}</h3>
+              <button
+                type="button"
+                onClick={() => setShowSettingsSheet(false)}
+                className="rounded-lg border border-glass-border px-2 py-1 text-sm"
+              >
+                {t.close}
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-xl border border-glass-border bg-glass p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsTheme}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button
+                    variant={appTheme === "light" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppTheme("light")}
+                  >
+                    {t.settingsThemeLight}
+                  </Button>
+                  <Button
+                    variant={appTheme === "dark" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppTheme("dark")}
+                  >
+                    {t.settingsThemeDark}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-glass-border bg-glass p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsLanguage}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button
+                    variant={appLanguage === "pt" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppLanguage("pt")}
+                  >
+                    {t.languagePortuguese}
+                  </Button>
+                  <Button
+                    variant={appLanguage === "en" ? "default" : "outline"}
+                    className="rounded-xl"
+                    onClick={() => setAppLanguage("en")}
+                  >
+                    {t.languageEnglish}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -2162,19 +2430,19 @@ function LumeFitApp() {
         <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
           <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Compartilhar progresso</h3>
+              <h3 className="text-lg font-semibold">{t.shareProgress}</h3>
               <button
                 type="button"
                 onClick={() => setShowShareSheet(false)}
                 className="rounded-lg border border-glass-border px-2 py-1 text-sm"
               >
-                Fechar
+                {t.close}
               </button>
             </div>
 
             <Button className="h-11 w-full rounded-xl" onClick={handleGenerateShareImage} disabled={isGeneratingShareImage}>
               <Sparkles className="h-4 w-4" />
-              {isGeneratingShareImage ? "A gerar imagem..." : "Gerar imagem para partilha"}
+              {isGeneratingShareImage ? t.shareGenerating : t.shareGenerated}
             </Button>
 
             {shareImageUrl ? (
@@ -2194,14 +2462,12 @@ function LumeFitApp() {
                     <Music2 className="h-4 w-4" /> TikTok
                   </Button>
                   <Button variant="secondary" className="rounded-xl" onClick={handleDownloadShareImage}>
-                    <Download className="h-4 w-4" /> Baixar
+                    <Download className="h-4 w-4" /> {appLanguage === "en" ? "Download" : "Baixar"}
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidratação e identidade visual LUMEfit.
-              </p>
+              <p className="mt-3 text-sm text-muted-foreground">{t.shareHint}</p>
             )}
           </div>
         </div>

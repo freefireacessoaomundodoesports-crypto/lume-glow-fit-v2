@@ -868,127 +868,156 @@ function LumeFitApp() {
         return;
       }
 
-      const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      bg.addColorStop(0, "#f0faf4");
-      bg.addColorStop(0.55, "#e8f5e9");
-      bg.addColorStop(1, "#f9fffe");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.fillStyle = "rgba(53, 167, 93, 0.14)";
-      ctx.beginPath();
-      ctx.arc(170, 240, 210, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(920, 410, 240, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(800, 1540, 300, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
-      const cardX = 70;
-      const cardY = 130;
-      const cardWidth = 940;
-      const cardHeight = 1650;
-      const radius = 48;
-      ctx.beginPath();
-      ctx.moveTo(cardX + radius, cardY);
-      ctx.lineTo(cardX + cardWidth - radius, cardY);
-      ctx.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + radius);
-      ctx.lineTo(cardX + cardWidth, cardY + cardHeight - radius);
-      ctx.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - radius, cardY + cardHeight);
-      ctx.lineTo(cardX + radius, cardY + cardHeight);
-      ctx.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - radius);
-      ctx.lineTo(cardX, cardY + radius);
-      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
-      ctx.closePath();
-      ctx.fill();
-
       const logoImg = new Image();
       logoImg.src = shareLogo;
-      await new Promise<void>((resolve, reject) => {
-        logoImg.onload = () => resolve();
-        logoImg.onerror = () => reject(new Error("logo_load_error"));
-      });
-      ctx.fillStyle = "#248a4c";
-      ctx.textAlign = "center";
-      ctx.font = "700 52px Poppins, sans-serif";
-      ctx.fillText("LUMEfit", 540, 300);
+      const styleRefImg = new Image();
+      styleRefImg.src = shareFitnessStyle;
 
-      ctx.fillStyle = "#2f7f52";
-      ctx.font = "600 44px Poppins, sans-serif";
-      ctx.fillText(`Parabéns, ${profile.name || "Campeã"}!`, 540, 375);
+      await Promise.all([
+        new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject(new Error("logo_load_error"));
+        }),
+        new Promise<void>((resolve, reject) => {
+          styleRefImg.onload = () => resolve();
+          styleRefImg.onerror = () => reject(new Error("style_ref_load_error"));
+        }),
+      ]);
 
-      ctx.fillStyle = "#376b4d";
-      ctx.font = "500 34px Poppins, sans-serif";
-      ctx.fillText(
-        isWeightMode ? "A tua disciplina está a mudar o teu peso." : "A tua consistência está a transformar o teu corpo.",
-        540,
-        435,
-      );
-      ctx.fillText("Continua firme — cada dia conta!", 540, 485);
+      ctx.drawImage(styleRefImg, 0, 0, canvas.width, canvas.height);
+      const weightOverlay = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      weightOverlay.addColorStop(0, "rgba(38, 140, 74, 0.52)");
+      weightOverlay.addColorStop(1, "rgba(11, 64, 33, 0.54)");
+      ctx.fillStyle = weightOverlay;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-      ctx.beginPath();
-      ctx.arc(540, 780, 200, 0, Math.PI * 2);
+      drawDumbbell(180, 330, -0.5);
+      drawDumbbell(880, 1540, 0.48);
+
+      const cardX = 90;
+      const cardY = 250;
+      const cardWidth = 900;
+      const cardHeight = 1420;
+      drawRoundedRect(cardX, cardY, cardWidth, cardHeight, 44);
+      ctx.fillStyle = "rgba(249, 247, 240, 0.95)";
       ctx.fill();
-      ctx.drawImage(logoImg, 360, 600, 360, 360);
-
-      ctx.textAlign = "left";
-      const blockX = 145;
-      const lines = isWeightMode
-        ? [
-            `Peso anterior: ${previousWeight.toFixed(1)}kg`,
-            `Peso atual: ${profile.weight.toFixed(1)}kg`,
-            `Peso desejado: ${profile.targetWeight.toFixed(1)}kg`,
-            `Calorias hoje: ${consumedCalories} kcal`,
-            `Água hoje: ${(waterIntakeMl / 1000).toFixed(2)}L`,
-          ]
-        : [
-            `Meta diária: ${profile.calorieGoal} kcal`,
-            `Meta de água: ${(profile.hydrationGoalMl / 1000).toFixed(1)}L`,
-            `Consumido hoje: ${consumedCalories} kcal`,
-            `Proteína: ${Math.round(macros.protein)}g • Carboidratos: ${Math.round(macros.carbs)}g • Gorduras: ${Math.round(macros.fat)}g`,
-            `Água bebida hoje: ${(waterIntakeMl / 1000).toFixed(2)}L`,
-          ];
-
-      ctx.fillStyle = "#1f5f3f";
-      ctx.font = "600 38px Poppins, sans-serif";
-      ctx.fillText(isWeightMode ? "Progresso de peso" : "Resumo de hoje", blockX, 1040);
-      ctx.font = "500 34px Poppins, sans-serif";
-      lines.forEach((line, index) => {
-        ctx.fillText(line, blockX, 1120 + index * 88);
-      });
-
-      const fitnessGradient = ctx.createLinearGradient(140, 1500, 940, 1760);
-      fitnessGradient.addColorStop(0, "rgba(46, 181, 102, 0.23)");
-      fitnessGradient.addColorStop(1, "rgba(21, 138, 76, 0.34)");
-      ctx.fillStyle = fitnessGradient;
-      ctx.beginPath();
-      ctx.moveTo(140, 1500);
-      ctx.lineTo(940, 1500);
-      ctx.lineTo(940, 1760);
-      ctx.lineTo(140, 1760);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = "rgba(36, 138, 76, 0.55)";
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(180, 1695);
-      ctx.quadraticCurveTo(360, 1575, 520, 1695);
-      ctx.quadraticCurveTo(700, 1795, 900, 1635);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+      ctx.lineWidth = 3;
       ctx.stroke();
 
-      ctx.fillStyle = "#236e46";
-      ctx.textAlign = "center";
+      const logoX = 180;
+      const logoY = 338;
+      const logoRadius = 54;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(logoX, logoY, logoRadius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(logoImg, logoX - logoRadius, logoY - logoRadius, logoRadius * 2, logoRadius * 2);
+      ctx.restore();
+      ctx.strokeStyle = "#f2d38d";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(logoX, logoY, logoRadius + 2, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#2d7c49";
+      ctx.font = "700 54px Poppins, sans-serif";
+      ctx.fillText("LUMEfit", 270, 332);
+      ctx.fillStyle = "#4f6d57";
+      ctx.font = "500 32px Poppins, sans-serif";
+      ctx.fillText("Evolução real de peso", 270, 380);
+
+      const userName = profile.name || "Campeã";
+      ctx.fillStyle = "#163b27";
+      ctx.font = "500 36px Poppins, sans-serif";
+      ctx.fillText(`Parabéns ${userName}, a tua perda de peso é progresso real!`, 150, 490);
+
+      ctx.fillStyle = "#1b5537";
+      ctx.font = "800 78px Poppins, sans-serif";
+      ctx.fillText("PESO", 150, 620);
+      ctx.font = "800 64px Poppins, sans-serif";
+      ctx.fillText("EM PROGRESSO", 150, 690);
+
+      const chartX = 150;
+      const chartY = 770;
+      const chartWidth = 780;
+      const chartHeight = 420;
+      drawRoundedRect(chartX - 20, chartY - 40, chartWidth + 40, chartHeight + 80, 30);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.66)";
+      ctx.fill();
+
+      const trendPoints = [
+        ...weightHistory.slice(-4).map((point) => point.weight),
+        previousWeight,
+        profile.weight,
+      ];
+      const maxWeight = Math.max(...trendPoints, profile.targetWeight) + 1;
+      const minWeight = Math.min(...trendPoints, profile.targetWeight) - 1;
+      const weightRange = Math.max(maxWeight - minWeight, 1);
+
+      ctx.strokeStyle = "rgba(70, 112, 84, 0.28)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i <= 4; i += 1) {
+        const y = chartY + (chartHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(chartX, y);
+        ctx.lineTo(chartX + chartWidth, y);
+        ctx.stroke();
+      }
+
+      const toY = (weight: number) => chartY + ((maxWeight - weight) / weightRange) * chartHeight;
+      const xStep = chartWidth / (trendPoints.length - 1);
+
+      ctx.beginPath();
+      trendPoints.forEach((weight, index) => {
+        const x = chartX + index * xStep;
+        const y = toY(weight);
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.strokeStyle = "#2f7f52";
+      ctx.lineWidth = 7;
+      ctx.stroke();
+
+      trendPoints.forEach((weight, index) => {
+        const x = chartX + index * xStep;
+        const y = toY(weight);
+        const isPrevious = index === trendPoints.length - 2;
+        const isCurrent = index === trendPoints.length - 1;
+
+        ctx.beginPath();
+        ctx.arc(x, y, isPrevious || isCurrent ? 12 : 8, 0, Math.PI * 2);
+        ctx.fillStyle = isPrevious ? "#dc2626" : isCurrent ? "#16a34a" : "#356749";
+        ctx.fill();
+      });
+
       ctx.font = "600 30px Poppins, sans-serif";
-      ctx.fillText(
-        isWeightMode ? "O teu foco inspira outras mulheres a não desistir 💚" : "Partilha a tua evolução e inspira outras mulheres 💚",
-        540,
-        1735,
-      );
+      ctx.fillStyle = "#dc2626";
+      ctx.fillText(`Peso anterior: ${previousWeight.toFixed(1)}kg`, 150, 1285);
+      ctx.fillStyle = "#16a34a";
+      ctx.fillText(`Peso atual: ${profile.weight.toFixed(1)}kg`, 150, 1345);
+      ctx.fillStyle = "#315e46";
+      ctx.fillText(`Peso desejado: ${profile.targetWeight.toFixed(1)}kg`, 150, 1405);
+
+      const targetDistance = Math.max(previousWeight - profile.targetWeight, 0.1);
+      const achieved = Math.max(previousWeight - profile.weight, 0);
+      const weightProgress = Math.min((achieved / targetDistance) * 100, 100);
+
+      ctx.fillStyle = "#315e46";
+      ctx.font = "600 32px Poppins, sans-serif";
+      ctx.fillText("Meta de perda de peso", 150, 1488);
+      ctx.font = "500 28px Poppins, sans-serif";
+      ctx.fillText(`${weightProgress.toFixed(0)}% concluído`, 150, 1532);
+      drawProgressBar(150, 1558, 780, 30, weightProgress, "#16a34a");
+
+      ctx.fillStyle = "#2f6e4a";
+      ctx.font = "500 30px Poppins, sans-serif";
+      ctx.fillText(`Continua assim, ${userName} — o teu esforço está a dar resultado! ✨`, 150, 1630);
 
       setShareImageUrl(canvas.toDataURL("image/png"));
       setToastMessage("Imagem gerada com sucesso ✨");

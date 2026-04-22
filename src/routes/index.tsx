@@ -1293,7 +1293,7 @@ function LumeFitApp() {
           </Button>
 
           {showTopMenu ? (
-            <div className="glass-card mt-2 min-w-[180px] rounded-2xl p-2">
+            <div className="glass-card mt-2 min-w-[220px] rounded-2xl p-2">
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"

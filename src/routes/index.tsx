@@ -348,128 +348,7 @@ async function compressImageForStorage(imageSource: string) {
   return canvas.toDataURL("image/jpeg", 0.5);
 }
 
-const initialRecentAnalyses: RecentMealAnalysis[] = [
-  {
-    id: "seed-1",
-    meal_name: "Xima com Matapa",
-    calories: 487,
-    protein: 28,
-    carbs: 58,
-    fat: 14,
-    ingredients: mockMealResults[0].ingredients,
-    insights: mockMealResults[0].insights,
-    nutrition_details: {
-      sodiumMg: mockMealResults[0].sodiumMg,
-      fiberG: mockMealResults[0].fiberG,
-      sugarsG: mockMealResults[0].sugarsG,
-      vitaminAPct: mockMealResults[0].vitaminAPct,
-      vitaminCPct: mockMealResults[0].vitaminCPct,
-      ironPct: mockMealResults[0].ironPct,
-      calciumPct: mockMealResults[0].calciumPct,
-      confidence: mockMealResults[0].confidence,
-      cuisineTag: mockMealResults[0].cuisineTag,
-      dailyGoalPercent: mockMealResults[0].dailyGoalPercent,
-    },
-    timestamp: new Date().toISOString(),
-    image: makePlaceholder("Xima + Matapa"),
-  },
-  {
-    id: "seed-2",
-    meal_name: "Arroz com Frango",
-    calories: 412,
-    protein: 31,
-    carbs: 46,
-    fat: 10,
-    ingredients: mockMealResults[1].ingredients,
-    insights: mockMealResults[1].insights,
-    nutrition_details: {
-      sodiumMg: mockMealResults[1].sodiumMg,
-      fiberG: mockMealResults[1].fiberG,
-      sugarsG: mockMealResults[1].sugarsG,
-      vitaminAPct: mockMealResults[1].vitaminAPct,
-      vitaminCPct: mockMealResults[1].vitaminCPct,
-      ironPct: mockMealResults[1].ironPct,
-      calciumPct: mockMealResults[1].calciumPct,
-      confidence: mockMealResults[1].confidence,
-      cuisineTag: mockMealResults[1].cuisineTag,
-      dailyGoalPercent: mockMealResults[1].dailyGoalPercent,
-    },
-    timestamp: new Date().toISOString(),
-    image: makePlaceholder("Arroz + Frango", "#dcfce7"),
-  },
-  {
-    id: "seed-3",
-    meal_name: "Feijão Nhemba",
-    calories: 390,
-    protein: 18,
-    carbs: 60,
-    fat: 8,
-    ingredients: mockMealResults[2].ingredients,
-    insights: mockMealResults[2].insights,
-    nutrition_details: {
-      sodiumMg: mockMealResults[2].sodiumMg,
-      fiberG: mockMealResults[2].fiberG,
-      sugarsG: mockMealResults[2].sugarsG,
-      vitaminAPct: mockMealResults[2].vitaminAPct,
-      vitaminCPct: mockMealResults[2].vitaminCPct,
-      ironPct: mockMealResults[2].ironPct,
-      calciumPct: mockMealResults[2].calciumPct,
-      confidence: mockMealResults[2].confidence,
-      cuisineTag: mockMealResults[2].cuisineTag,
-      dailyGoalPercent: mockMealResults[2].dailyGoalPercent,
-    },
-    timestamp: new Date().toISOString(),
-    image: makePlaceholder("Feijão Nhemba"),
-  },
-  {
-    id: "seed-4",
-    meal_name: "Peixe com Xima",
-    calories: 520,
-    protein: 34,
-    carbs: 57,
-    fat: 18,
-    ingredients: mockMealResults[3].ingredients,
-    insights: mockMealResults[3].insights,
-    nutrition_details: {
-      sodiumMg: mockMealResults[3].sodiumMg,
-      fiberG: mockMealResults[3].fiberG,
-      sugarsG: mockMealResults[3].sugarsG,
-      vitaminAPct: mockMealResults[3].vitaminAPct,
-      vitaminCPct: mockMealResults[3].vitaminCPct,
-      ironPct: mockMealResults[3].ironPct,
-      calciumPct: mockMealResults[3].calciumPct,
-      confidence: mockMealResults[3].confidence,
-      cuisineTag: mockMealResults[3].cuisineTag,
-      dailyGoalPercent: mockMealResults[3].dailyGoalPercent,
-    },
-    timestamp: new Date().toISOString(),
-    image: makePlaceholder("Peixe + Xima", "#bbf7d0"),
-  },
-  {
-    id: "seed-5",
-    meal_name: "Frango Legumes",
-    calories: 365,
-    protein: 36,
-    carbs: 32,
-    fat: 11,
-    ingredients: mockMealResults[5].ingredients,
-    insights: mockMealResults[5].insights,
-    nutrition_details: {
-      sodiumMg: mockMealResults[5].sodiumMg,
-      fiberG: mockMealResults[5].fiberG,
-      sugarsG: mockMealResults[5].sugarsG,
-      vitaminAPct: mockMealResults[5].vitaminAPct,
-      vitaminCPct: mockMealResults[5].vitaminCPct,
-      ironPct: mockMealResults[5].ironPct,
-      calciumPct: mockMealResults[5].calciumPct,
-      confidence: mockMealResults[5].confidence,
-      cuisineTag: mockMealResults[5].cuisineTag,
-      dailyGoalPercent: mockMealResults[5].dailyGoalPercent,
-    },
-    timestamp: new Date().toISOString(),
-    image: makePlaceholder("Frango + Legumes"),
-  },
-];
+const initialRecentAnalyses: RecentMealAnalysis[] = [];
 
 function calcGoal(weight: number, height: number, age: number, activity: string, weeklyGoal: string) {
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
@@ -904,9 +783,9 @@ function LumeFitApp() {
         : "var(--color-brand-danger)";
 
   const macros = {
-    protein: (consumedCalories * 0.3) / 4,
-    carbs: (consumedCalories * 0.45) / 4,
-    fat: (consumedCalories * 0.25) / 9,
+    protein: entries.reduce((sum, item) => sum + (item.protein || 0), 0),
+    carbs: entries.reduce((sum, item) => sum + (item.carbs || 0), 0),
+    fat: entries.reduce((sum, item) => sum + (item.fat || 0), 0),
   };
   const macroProgress = {
     protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
@@ -985,6 +864,7 @@ function LumeFitApp() {
     const fileUrl = URL.createObjectURL(file);
     setPreviewImage(fileUrl);
     setActiveResult(pickMockResult(file.name));
+    setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
     setExpandedIngredient(null);

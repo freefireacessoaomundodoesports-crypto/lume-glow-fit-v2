@@ -2170,55 +2170,9 @@ function LumeFitApp() {
                           <h4 className="text-sm font-semibold">Análises Recentes</h4>
                           <span className="text-xs text-muted-foreground">Últimas 5</span>
                         </div>
-                        <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
+                        <div className="no-scrollbar scroll-touch card-list-contain recent-meals-strip flex gap-3 overflow-x-auto pb-1">
                           {recentAnalyses.map((item) => (
-                            <button
-                              type="button"
-                              key={item.id}
-                              onClick={() => {
-                                const matched: MockMealResult = {
-                                  id: `saved-${item.id}`,
-                                  mealName: item.meal_name,
-                                  cuisineTag: item.nutrition_details.cuisineTag,
-                                  confidence: item.nutrition_details.confidence,
-                                  estimatedKcal: item.calories,
-                                  protein: item.protein,
-                                  carbs: item.carbs,
-                                  fat: item.fat,
-                                  dailyGoalPercent: item.nutrition_details.dailyGoalPercent,
-                                  sodiumMg: item.nutrition_details.sodiumMg,
-                                  fiberG: item.nutrition_details.fiberG,
-                                  sugarsG: item.nutrition_details.sugarsG,
-                                  vitaminAPct: item.nutrition_details.vitaminAPct,
-                                  vitaminCPct: item.nutrition_details.vitaminCPct,
-                                  ironPct: item.nutrition_details.ironPct,
-                                  calciumPct: item.nutrition_details.calciumPct,
-                                  imageSeed: "saved",
-                                  ingredients: item.ingredients,
-                                  insights: item.insights,
-                                };
-                                setPreviewImage(item.image ?? null);
-                                setActiveResult(matched);
-                                setMealStage("result");
-                                setIsViewingSavedAnalysis(true);
-                                setPortionMultiplier(1);
-                              }}
-                              className="w-[82px] shrink-0 text-left"
-                            >
-                              {item.image ? (
-                                <img
-                                  src={item.image}
-                                  alt={item.meal_name}
-                                  className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
-                                  🍽️
-                                </div>
-                              )}
-                              <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
-                            </button>
+                            <RecentAnalysisItem key={item.id} item={item} onOpen={handleOpenSavedAnalysis} />
                           ))}
                         </div>
                       </article>

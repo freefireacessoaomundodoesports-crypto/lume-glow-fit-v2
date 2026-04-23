@@ -629,41 +629,74 @@ function LumeFitApp() {
   });
 
   const [entries, setEntries] = useState<MealEntry[]>([]);
-  const [weightHistory, setWeightHistory] = useState([
-    { week: "Sem 1", weight: 80 },
-    { week: "Sem 2", weight: 79.2 },
-    { week: "Sem 3", weight: 78.6 },
-    { week: "Sem 4", weight: 78 },
-    { week: "Sem 5", weight: 77.3 },
-    { week: "Sem 6", weight: 76.8 },
-  ]);
+  const [entriesByDay, setEntriesByDay] = useState<Record<string, MealEntry[]>>({});
+  const [weightLog, setWeightLog] = useState<WeightLogEntry[]>([]);
+  const [achievements, setAchievements] = useState<string[]>([]);
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const timeoutIdsRef = useRef<number[]>([]);
-  const storageSnapshotRef = useRef<PersistedState>({});
+  const storageSnapshotRef = useRef<UnifiedAppState | null>(null);
+  const shareFetchAbortRef = useRef<AbortController | null>(null);
+  const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
 
-  const writeState = (next: PersistedState) => {
+  const writeState = useCallback((next: UnifiedAppState) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       // silent fail by requirement
     }
-  };
+  }, []);
 
-  const readStorageState = useCallback((): PersistedState => {
+  const readStorageState = useCallback((): UnifiedAppState | null => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as PersistedState) : {};
+      return raw ? (JSON.parse(raw) as UnifiedAppState) : null;
     } catch {
-      return {};
+      return null;
     }
   }, []);
 
-  const updateStorageSnapshot = useCallback((next: PersistedState) => {
+  const updateStorageSnapshot = useCallback((next: UnifiedAppState) => {
     storageSnapshotRef.current = next;
+  }, []);
+
+  const readEntriesForDate = useCallback((dateKey: string): MealEntry[] => {
+    try {
+      const raw = localStorage.getItem(getEntriesStorageKey(dateKey));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as MealEntry[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const writeEntriesForDate = useCallback((dateKey: string, dayEntries: MealEntry[]) => {
+    try {
+      localStorage.setItem(getEntriesStorageKey(dateKey), JSON.stringify(dayEntries));
+    } catch {
+      // silent fail by requirement
+    }
+  }, []);
+
+  const readAllEntriesByDay = useCallback((): Record<string, MealEntry[]> => {
+    try {
+      const output: Record<string, MealEntry[]> = {};
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (!key || !isEntriesStorageKey(key)) continue;
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as MealEntry[];
+        output[key.replace("entries_", "")] = Array.isArray(parsed) ? parsed : [];
+      }
+      return output;
+    } catch {
+      return {};
+    }
   }, []);
 
   const setManagedTimeout = useCallback((callback: () => void, delay: number) => {
@@ -700,7 +733,7 @@ function LumeFitApp() {
     image,
   });
 
-  const resetDailyStates = () => {
+  const resetDailyStates = useCallback(() => {
     setEntries([]);
     setWaterIntakeMl(0);
     setExpandedMeals([]);
@@ -721,103 +754,186 @@ function LumeFitApp() {
     setShowToast(false);
     setToastMessage("");
     setIsViewingSavedAnalysis(false);
-  };
+  }, []);
 
   useEffect(() => {
-    const parsed = readStorageState();
-    updateStorageSnapshot(parsed);
+    const todayKey = getDateKey();
     try {
-      const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
-      const onboardingComplete = onboardingFlagRaw === "true";
+      let unifiedState = readStorageState();
 
-      if (onboardingComplete) setOnboardingDone(true);
-
-      let restoredProfile = parsed.profile;
-      if (!restoredProfile) {
-        try {
-          const onboardingProfileRaw = localStorage.getItem(ONBOARDING_PROFILE_KEY);
-          if (onboardingProfileRaw) {
-            restoredProfile = JSON.parse(onboardingProfileRaw) as Profile;
+      if (!unifiedState) {
+        const legacy = (() => {
+          try {
+            const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+            return raw ? (JSON.parse(raw) as PersistedState) : {};
+          } catch {
+            return {} as PersistedState;
           }
-        } catch {
-          // silent fail
-        }
-      }
+        })();
 
-      if (restoredProfile) {
-        const nextProfile = {
-          ...restoredProfile,
-          hydrationGoalMl:
-            typeof restoredProfile.hydrationGoalMl === "number"
-              ? restoredProfile.hydrationGoalMl
-              : calcHydrationGoal(restoredProfile.weight, restoredProfile.activityLevel),
-          macroGoals:
-            restoredProfile.macroGoals || calcMacroGoals(restoredProfile.calorieGoal || 1400),
+        const legacyProfile = (() => {
+          if (legacy.profile) return legacy.profile;
+          try {
+            const profileRaw = localStorage.getItem(LEGACY_ONBOARDING_PROFILE_KEY) || localStorage.getItem(LEGACY_PROFILE_KEY);
+            if (!profileRaw) return null;
+            const parsed = JSON.parse(profileRaw) as Partial<Profile> & {
+              target_weight?: number;
+              goal?: string;
+              activity_level?: string;
+              daily_calorie_goal?: number;
+              date_joined?: string;
+            };
+            const base: Profile = {
+              name: parsed.name || "",
+              age: Number(parsed.age) || 30,
+              city: parsed.city || "",
+              weight: Number(parsed.weight) || 78,
+              height: Number(parsed.height) || 163,
+              targetWeight: Number(parsed.targetWeight ?? parsed.target_weight) || 68,
+              weeklyGoal: (parsed.weeklyGoal ?? parsed.goal) || weeklyGoals[1],
+              activityLevel: (parsed.activityLevel ?? parsed.activity_level) || activityLevels[1],
+              calorieGoal: Number(parsed.calorieGoal ?? parsed.daily_calorie_goal) || 1400,
+              hydrationGoalMl: calcHydrationGoal(Number(parsed.weight) || 78, (parsed.activityLevel ?? parsed.activity_level) || activityLevels[1]),
+              macroGoals: calcMacroGoals(Number(parsed.calorieGoal ?? parsed.daily_calorie_goal) || 1400),
+            };
+            return base;
+          } catch {
+            return null;
+          }
+        })();
+
+        const fallbackProfile = legacyProfile || profile;
+        const dateJoined = legacy.firstUseAt || new Date().toISOString();
+        const allLegacyEntries = Array.isArray(legacy.entries) ? legacy.entries : [];
+        const entriesGrouped = allLegacyEntries.reduce<Record<string, MealEntry[]>>((acc, entry) => {
+          const day = entry.timestamp.slice(0, 10) || todayKey;
+          acc[day] = [...(acc[day] || []), entry];
+          return acc;
+        }, {});
+        Object.entries(entriesGrouped).forEach(([day, dayEntries]) => writeEntriesForDate(day, dayEntries));
+
+        unifiedState = {
+          onboarding_complete:
+            Boolean(legacy.onboardingDone) ||
+            (() => {
+              try {
+                return localStorage.getItem(LEGACY_ONBOARDING_COMPLETE_KEY) === "true";
+              } catch {
+                return false;
+              }
+            })(),
+          last_active_date:
+            (() => {
+              try {
+                return localStorage.getItem(LEGACY_LAST_ACTIVE_DATE_KEY) || todayKey;
+              } catch {
+                return todayKey;
+              }
+            })(),
+          profile: toUnifiedProfile(fallbackProfile, dateJoined),
+          today: summarizeToday(entriesGrouped[todayKey] || [], typeof legacy.waterIntakeMl === "number" ? legacy.waterIntakeMl : 0),
+          recent_analyses: Array.isArray(legacy.recentAnalyses)
+            ? legacy.recentAnalyses.slice(0, MAX_RECENT_MEALS)
+            : (() => {
+                try {
+                  const raw = localStorage.getItem(LEGACY_RECENT_MEAL_ANALYSES_KEY);
+                  if (!raw) return [];
+                  const parsed = JSON.parse(raw) as RecentMealAnalysis[];
+                  return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_MEALS) : [];
+                } catch {
+                  return [];
+                }
+              })(),
+          weight_log: [{ date: todayKey, weight: fallbackProfile.weight }],
+          achievements: [],
+          completed_training_phases: legacy.completedTrainingPhases,
+          previous_weight: legacy.previousWeight,
+          last_seen_at: legacy.lastSeenAt,
+          app_language: legacy.appLanguage,
+          app_theme: legacy.appTheme,
         };
-        setProfile(nextProfile);
-      }
-      if (parsed.entries) setEntries(parsed.entries);
-      if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
-      if (!onboardingComplete && typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
-      if (typeof parsed.firstUseAt === "string") setFirstUseAt(parsed.firstUseAt);
-      if (typeof parsed.previousWeight === "number") setPreviousWeight(parsed.previousWeight);
-      if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
 
-      try {
-        const recentRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
-        if (recentRaw) {
-          const recent = JSON.parse(recentRaw) as RecentMealAnalysis[];
-          setRecentAnalyses(Array.isArray(recent) ? recent.slice(0, MAX_RECENT_MEALS) : []);
-        } else if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
-          setRecentAnalyses(parsed.recentAnalyses.slice(0, MAX_RECENT_MEALS));
-        } else {
-          setRecentAnalyses([]);
+        try {
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+          localStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          localStorage.removeItem(LEGACY_ONBOARDING_PROFILE_KEY);
+          localStorage.removeItem(LEGACY_LAST_ACTIVE_DATE_KEY);
+          localStorage.removeItem(LEGACY_RECENT_MEAL_ANALYSES_KEY);
+          localStorage.removeItem(LEGACY_PROFILE_KEY);
+        } catch {
+          // silent fail by requirement
         }
-      } catch {
-        setRecentAnalyses([]);
+        writeState(unifiedState);
       }
 
-      try {
-        const lastActiveDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
-        const todayKey = getDateKey();
-        if (lastActiveDate && lastActiveDate !== todayKey) {
-          resetDailyStates();
-        }
-        localStorage.setItem(LAST_ACTIVE_DATE_KEY, todayKey);
-      } catch {
-        // silent fail
-      }
+      const isNewDay = unifiedState.last_active_date !== todayKey;
+      const todayEntriesFromStorage = isNewDay ? [] : readEntriesForDate(todayKey);
+      if (isNewDay) writeEntriesForDate(todayKey, []);
 
-      if (typeof parsed.lastSeenAt === "string") {
-        const elapsed = Date.now() - new Date(parsed.lastSeenAt).getTime();
-        if (elapsed >= 6 * 60 * 60 * 1000) {
-          setShowMotivationNotification(true);
-        }
+      const normalizedState: UnifiedAppState = {
+        ...unifiedState,
+        last_active_date: todayKey,
+        today: summarizeToday(todayEntriesFromStorage, isNewDay ? 0 : unifiedState.today?.water || 0),
+      };
+
+      updateStorageSnapshot(normalizedState);
+      setProfile(toProfileFromUnified(normalizedState.profile));
+      setEntries(todayEntriesFromStorage);
+      setEntriesByDay({ ...readAllEntriesByDay(), [todayKey]: todayEntriesFromStorage });
+      setWaterIntakeMl(normalizedState.today.water || 0);
+      setOnboardingDone(Boolean(normalizedState.onboarding_complete));
+      setFirstUseAt(normalizedState.profile.date_joined || new Date().toISOString());
+      if (typeof normalizedState.previous_weight === "number") setPreviousWeight(normalizedState.previous_weight);
+      if (normalizedState.completed_training_phases) setCompletedTrainingPhases(normalizedState.completed_training_phases);
+      setRecentAnalyses((normalizedState.recent_analyses || []).slice(0, MAX_RECENT_MEALS));
+      setWeightLog(Array.isArray(normalizedState.weight_log) ? normalizedState.weight_log : []);
+      setAchievements(Array.isArray(normalizedState.achievements) ? normalizedState.achievements : []);
+      if (normalizedState.app_language === "pt" || normalizedState.app_language === "en") setAppLanguage(normalizedState.app_language);
+      if (normalizedState.app_theme === "light" || normalizedState.app_theme === "dark") setAppTheme(normalizedState.app_theme);
+
+      if (typeof normalizedState.last_seen_at === "string") {
+        const elapsed = Date.now() - new Date(normalizedState.last_seen_at).getTime();
+        if (elapsed >= 6 * 60 * 60 * 1000) setShowMotivationNotification(true);
       }
-      if (parsed.appLanguage === "pt" || parsed.appLanguage === "en") setAppLanguage(parsed.appLanguage);
-      if (parsed.appTheme === "light" || parsed.appTheme === "dark") setAppTheme(parsed.appTheme);
-      setView(onboardingComplete || parsed.onboardingDone ? "home" : "setup");
+      if (isNewDay) resetDailyStates();
+      setView(normalizedState.onboarding_complete ? "home" : "setup");
+      writeState(normalizedState);
     } catch {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // silent fail
-      }
+      // silent fail by requirement
     }
-  }, [readStorageState, updateStorageSnapshot]);
+  }, [
+    profile,
+    readAllEntriesByDay,
+    readEntriesForDate,
+    readStorageState,
+    resetDailyStates,
+    updateStorageSnapshot,
+    writeEntriesForDate,
+    writeState,
+  ]);
 
   useEffect(() => {
-    const nextState: PersistedState = {
-      profile,
-      entries,
-      recentAnalyses,
-      waterIntakeMl,
-      onboardingDone,
-      completedTrainingPhases,
-      firstUseAt,
-      previousWeight,
-      appLanguage,
-      appTheme,
+    const todayKey = getDateKey();
+    writeEntriesForDate(todayKey, entries);
+    const nextEntriesByDay = {
+      ...entriesByDay,
+      [todayKey]: entries,
+    };
+    setEntriesByDay(nextEntriesByDay);
+
+    const nextState: UnifiedAppState = {
+      onboarding_complete: onboardingDone,
+      last_active_date: todayKey,
+      profile: toUnifiedProfile(profile, firstUseAt),
+      today: summarizeToday(entries, waterIntakeMl),
+      recent_analyses: recentAnalyses.slice(0, MAX_RECENT_MEALS),
+      weight_log: weightLog,
+      achievements,
+      completed_training_phases: completedTrainingPhases,
+      previous_weight: previousWeight,
+      last_seen_at: storageSnapshotRef.current?.last_seen_at,
+      app_language: appLanguage,
+      app_theme: appTheme,
     };
     updateStorageSnapshot(nextState);
     writeState(nextState);
@@ -832,16 +948,14 @@ function LumeFitApp() {
     previousWeight,
     appLanguage,
     appTheme,
+    achievements,
+    entriesByDay,
     updateStorageSnapshot,
+    waterIntakeMl,
+    weightLog,
+    writeEntriesForDate,
+    writeState,
   ]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(recentAnalyses.slice(0, MAX_RECENT_MEALS)));
-    } catch {
-      // silent fail
-    }
-  }, [recentAnalyses]);
 
   useEffect(() => {
     const saveLastSeenAt = () => {

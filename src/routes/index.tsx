@@ -633,7 +633,7 @@ function LumeFitApp() {
   };
 
   useEffect(() => {
-    const parsed = readState();
+    const parsed = readStorageState();
     try {
       const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
       const onboardingComplete = onboardingFlagRaw === "true";
@@ -750,7 +750,7 @@ function LumeFitApp() {
 
   useEffect(() => {
     const saveLastSeenAt = () => {
-      const parsed = readState();
+      const parsed = storageSnapshotRef.current;
       writeState({
         ...parsed,
         lastSeenAt: new Date().toISOString(),

@@ -2266,9 +2266,17 @@ function LumeFitApp() {
 
                       <div className="frosted-nav fixed bottom-20 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[18px] p-3 sm:max-w-md">
                         <div className="space-y-2">
-                          <Button className="h-11 w-full" onClick={confirmAddToDiary} disabled={isSavingMeal}>
+                          <Button
+                            className="h-11 w-full"
+                            onClick={confirmAddToDiary}
+                            disabled={isSavingMeal || isViewingSavedAnalysis}
+                          >
                             <Check className="h-4 w-4" />
-                            {isSavingMeal ? "A guardar..." : "Adicionar ao Diário"}
+                            {isViewingSavedAnalysis
+                              ? "Visualização guardada"
+                              : isSavingMeal
+                                ? "A guardar..."
+                                : "Adicionar ao Diário"}
                           </Button>
                           <Button variant="outline" className="h-10 w-full" onClick={resetMealFlow}>
                             Analisar Outro Prato
@@ -2505,14 +2513,20 @@ function LumeFitApp() {
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    localStorage.removeItem(STORAGE_KEY);
+                    try {
+                      localStorage.removeItem(STORAGE_KEY);
+                      localStorage.removeItem(RECENT_MEAL_ANALYSES_KEY);
+                      localStorage.removeItem(LAST_ACTIVE_DATE_KEY);
+                    } catch {
+                      // silent fail
+                    }
                     setEntries([]);
                     setRecentAnalyses(initialRecentAnalyses);
                     setWaterIntakeMl(0);
-                    setOnboardingDone(false);
+                    setOnboardingDone(true);
                     setShowPlanPresentation(false);
                     setGeneratedPlan(null);
-                    setView("setup");
+                    setView("home");
                   }}
                 >
                   Logout

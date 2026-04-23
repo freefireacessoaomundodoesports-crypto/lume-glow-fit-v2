@@ -637,6 +637,8 @@ function LumeFitApp() {
   const storageSnapshotRef = useRef<UnifiedAppState | null>(null);
   const hasHydratedFromStorageRef = useRef(false);
   const isMountedRef = useRef(false);
+  const hasInitializedWeightTrackingRef = useRef(false);
+  const latestWeightRef = useRef<number | null>(null);
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
@@ -965,6 +967,28 @@ function LumeFitApp() {
       [todayKey]: entries,
     }));
   }, [entries]);
+
+  useEffect(() => {
+    if (!onboardingDone) return;
+    if (!hasInitializedWeightTrackingRef.current) {
+      hasInitializedWeightTrackingRef.current = true;
+      latestWeightRef.current = profile.weight;
+      return;
+    }
+
+    if (latestWeightRef.current === profile.weight) return;
+    latestWeightRef.current = profile.weight;
+
+    const date = getDateKey();
+    setWeightLog((prev) => {
+      const normalized = Array.isArray(prev) ? prev : [];
+      const existing = normalized.find((item) => item.date === date);
+      if (existing) {
+        return normalized.map((item) => (item.date === date ? { ...item, weight: profile.weight } : item));
+      }
+      return [...normalized, { date, weight: profile.weight }];
+    });
+  }, [onboardingDone, profile.weight]);
 
   useEffect(() => {
     const saveLastSeenAt = () => {

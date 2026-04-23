@@ -635,6 +635,7 @@ function LumeFitApp() {
   const previewObjectUrlRef = useRef<string | null>(null);
   const timeoutIdsRef = useRef<number[]>([]);
   const storageSnapshotRef = useRef<UnifiedAppState | null>(null);
+  const hasHydratedFromStorageRef = useRef(false);
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
@@ -760,6 +761,9 @@ function LumeFitApp() {
   }, []);
 
   useEffect(() => {
+    if (hasHydratedFromStorageRef.current) return;
+    hasHydratedFromStorageRef.current = true;
+
     const todayKey = getDateKey();
     try {
       let unifiedState = readStorageState();

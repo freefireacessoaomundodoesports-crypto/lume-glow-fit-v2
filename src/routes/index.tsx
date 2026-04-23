@@ -91,6 +91,44 @@ type PersistedState = {
   appTheme?: AppTheme;
 };
 
+type WeightLogEntry = {
+  date: string;
+  weight: number;
+};
+
+type UnifiedAppState = {
+  onboarding_complete: boolean;
+  last_active_date: string;
+  profile: {
+    name: string;
+    age: number;
+    city: string;
+    weight: number;
+    height: number;
+    target_weight: number;
+    goal: string;
+    activity_level: string;
+    daily_calorie_goal: number;
+    date_joined: string;
+  };
+  today: {
+    calories_consumed: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    water: number;
+    meals: MealEntry[];
+  };
+  recent_analyses: RecentMealAnalysis[];
+  weight_log: WeightLogEntry[];
+  achievements: string[];
+  completed_training_phases?: Record<"primeiro-mes" | "segundo-mes" | "terceiro-mes", boolean>;
+  previous_weight?: number;
+  last_seen_at?: string;
+  app_language?: AppLanguage;
+  app_theme?: AppTheme;
+};
+
 type GeneratedPlan = {
   calorieGoal: number;
   hydrationGoalMl: number;
@@ -140,11 +178,13 @@ type RecentMealAnalysis = {
   image: string | null;
 };
 
-const STORAGE_KEY = "lumefit_state_v1";
-const ONBOARDING_COMPLETE_KEY = "onboarding_complete";
-const ONBOARDING_PROFILE_KEY = "onboarding_profile";
-const LAST_ACTIVE_DATE_KEY = "last_active_date";
-const RECENT_MEAL_ANALYSES_KEY = "recent_meal_analyses";
+const STORAGE_KEY = "lumefit_v1";
+const LEGACY_STORAGE_KEY = "lumefit_state_v1";
+const LEGACY_ONBOARDING_COMPLETE_KEY = "onboarding_complete";
+const LEGACY_ONBOARDING_PROFILE_KEY = "onboarding_profile";
+const LEGACY_LAST_ACTIVE_DATE_KEY = "last_active_date";
+const LEGACY_RECENT_MEAL_ANALYSES_KEY = "recent_meal_analyses";
+const LEGACY_PROFILE_KEY = "perfil_de_integracao";
 const MAX_RECENT_MEALS = 5;
 const MAX_RECENT_IMAGE_LENGTH = 150000;
 

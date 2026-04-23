@@ -356,6 +356,41 @@ async function compressImageForStorage(imageSource: string) {
 
 const initialRecentAnalyses: RecentMealAnalysis[] = [];
 
+const PressableButton = memo(function PressableButton(
+  props: React.ComponentPropsWithoutRef<"button">,
+) {
+  return <button {...props} className={`perf-pressable ${props.className || ""}`.trim()} />;
+});
+
+type RecentAnalysisItemProps = {
+  item: RecentMealAnalysis;
+  onOpen: (item: RecentMealAnalysis) => void;
+};
+
+const RecentAnalysisItem = memo(function RecentAnalysisItem({ item, onOpen }: RecentAnalysisItemProps) {
+  const handleOpen = useCallback(() => {
+    onOpen(item);
+  }, [item, onOpen]);
+
+  return (
+    <PressableButton type="button" onClick={handleOpen} className="w-[82px] shrink-0 text-left recent-meal-item">
+      {item.image ? (
+        <img
+          src={item.image}
+          alt={item.meal_name}
+          className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
+          🍽️
+        </div>
+      )}
+      <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
+    </PressableButton>
+  );
+});
+
 function calcGoal(weight: number, height: number, age: number, activity: string, weeklyGoal: string) {
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
   const activityFactor =

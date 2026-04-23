@@ -639,12 +639,6 @@ function LumeFitApp() {
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
 
-  const showComingSoonToast = useCallback(() => {
-    setToastMessage("Em breve disponível! ✨");
-    setShowToast(true);
-    setManagedTimeout(() => setShowToast(false), 1800);
-  }, [setManagedTimeout]);
-
   const writeState = useCallback((next: UnifiedAppState) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -710,6 +704,12 @@ function LumeFitApp() {
     timeoutIdsRef.current.push(timeoutId);
     return timeoutId;
   }, []);
+
+  const showComingSoonToast = useCallback(() => {
+    setToastMessage("Em breve disponível! ✨");
+    setShowToast(true);
+    setManagedTimeout(() => setShowToast(false), 1800);
+  }, [setManagedTimeout]);
 
   const buildRecentAnalysis = (result: MockMealResult, kcal: number, image: string | null): RecentMealAnalysis => ({
     id: Date.now().toString(),

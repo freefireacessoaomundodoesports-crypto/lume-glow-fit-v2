@@ -1431,6 +1431,14 @@ function LumeFitApp() {
 
   const applyGeneratedPlan = () => {
     if (!generatedPlan) return;
+    const finalizedProfile = {
+      ...profile,
+      activityLevel: onboardingActivityMap[setupActivity].profileValue,
+      calorieGoal: generatedPlan.calorieGoal,
+      hydrationGoalMl: generatedPlan.hydrationGoalMl,
+      macroGoals: generatedPlan.macroGoals,
+    };
+
     setProfile((prev) => ({
       ...prev,
       activityLevel: onboardingActivityMap[setupActivity].profileValue,
@@ -1440,6 +1448,26 @@ function LumeFitApp() {
     }));
     setWaterIntakeMl(0);
     setOnboardingDone(true);
+    try {
+      localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
+      localStorage.setItem(
+        ONBOARDING_PROFILE_KEY,
+        JSON.stringify({
+          name: finalizedProfile.name,
+          age: finalizedProfile.age,
+          city: finalizedProfile.city,
+          weight: finalizedProfile.weight,
+          height: finalizedProfile.height,
+          target_weight: finalizedProfile.targetWeight,
+          goal: finalizedProfile.weeklyGoal,
+          activity_level: finalizedProfile.activityLevel,
+          daily_calorie_goal: finalizedProfile.calorieGoal,
+          date_joined: firstUseAt,
+        }),
+      );
+    } catch {
+      // silent fail
+    }
     setShowPlanPresentation(false);
     setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
@@ -1943,21 +1971,48 @@ function LumeFitApp() {
                               type="button"
                               key={item.id}
                               onClick={() => {
-                                const matched = mockMealResults.find((m) => m.id === item.resultId) || mockMealResults[0];
-                                setPreviewImage(item.image);
+                                const matched: MockMealResult = {
+                                  id: `saved-${item.id}`,
+                                  mealName: item.meal_name,
+                                  cuisineTag: item.nutrition_details.cuisineTag,
+                                  confidence: item.nutrition_details.confidence,
+                                  estimatedKcal: item.calories,
+                                  protein: item.protein,
+                                  carbs: item.carbs,
+                                  fat: item.fat,
+                                  dailyGoalPercent: item.nutrition_details.dailyGoalPercent,
+                                  sodiumMg: item.nutrition_details.sodiumMg,
+                                  fiberG: item.nutrition_details.fiberG,
+                                  sugarsG: item.nutrition_details.sugarsG,
+                                  vitaminAPct: item.nutrition_details.vitaminAPct,
+                                  vitaminCPct: item.nutrition_details.vitaminCPct,
+                                  ironPct: item.nutrition_details.ironPct,
+                                  calciumPct: item.nutrition_details.calciumPct,
+                                  imageSeed: "saved",
+                                  ingredients: item.ingredients,
+                                  insights: item.insights,
+                                };
+                                setPreviewImage(item.image ?? null);
                                 setActiveResult(matched);
                                 setMealStage("result");
+                                setIsViewingSavedAnalysis(true);
                                 setPortionMultiplier(1);
                               }}
                               className="w-[82px] shrink-0 text-left"
                             >
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
-                                loading="lazy"
-                              />
-                              <p className="mt-1 truncate text-[11px] font-medium">{item.name}</p>
+                              {item.image ? (
+                                <img
+                                  src={item.image}
+                                  alt={item.meal_name}
+                                  className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
+                                  🍽️
+                                </div>
+                              )}
+                              <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
                             </button>
                           ))}
                         </div>

@@ -634,6 +634,7 @@ function LumeFitApp() {
 
   useEffect(() => {
     const parsed = readStorageState();
+    updateStorageSnapshot(parsed);
     try {
       const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
       const onboardingComplete = onboardingFlagRaw === "true";
@@ -712,10 +713,10 @@ function LumeFitApp() {
         // silent fail
       }
     }
-  }, []);
+  }, [readStorageState, updateStorageSnapshot]);
 
   useEffect(() => {
-    writeState({
+    const nextState: PersistedState = {
       profile,
       entries,
       recentAnalyses,
@@ -726,7 +727,9 @@ function LumeFitApp() {
       previousWeight,
       appLanguage,
       appTheme,
-    });
+    };
+    updateStorageSnapshot(nextState);
+    writeState(nextState);
   }, [
     profile,
     entries,
@@ -738,6 +741,7 @@ function LumeFitApp() {
     previousWeight,
     appLanguage,
     appTheme,
+    updateStorageSnapshot,
   ]);
 
   useEffect(() => {
@@ -769,6 +773,17 @@ function LumeFitApp() {
     return () => {
       window.removeEventListener("beforeunload", saveLastSeenAt);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
+      timeoutIdsRef.current = [];
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
     };
   }, []);
 

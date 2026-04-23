@@ -642,6 +642,7 @@ function LumeFitApp() {
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
+  const planResultRef = useRef<HTMLDivElement | null>(null);
 
   const writeState = useCallback((next: UnifiedAppState) => {
     try {
@@ -650,6 +651,13 @@ function LumeFitApp() {
       // silent fail by requirement
     }
   }, []);
+
+  const writeStateDebounced = useCallback((next: UnifiedAppState) => {
+    const timeoutId = window.setTimeout(() => {
+      writeState(next);
+    }, 1000); // 1 segundo de debounce para salvar no disco
+    timeoutIdsRef.current.push(timeoutId);
+  }, [writeState]);
 
   const readStorageState = useCallback((): UnifiedAppState | null => {
     try {
@@ -941,7 +949,14 @@ function LumeFitApp() {
       app_theme: appTheme,
     };
     updateStorageSnapshot(nextState);
-    writeState(nextState);
+    
+    // Usar a versão debounced para evitar gargalos de IO ao digitar
+    const timeoutId = window.setTimeout(() => {
+      writeState(nextState);
+    }, 800);
+    timeoutIdsRef.current.push(timeoutId);
+    
+    return () => window.clearTimeout(timeoutId);
   }, [
     profile,
     entries,
@@ -1150,10 +1165,10 @@ function LumeFitApp() {
     return Math.max(1, Math.floor(diff / (1000 * 60 * 60 * 24)) + 1);
   }, [firstUseAt]);
 
-  const onboardingActivityMap: Record<
+  const onboardingActivityMap = useMemo<Record<
     SetupActivityLevel,
     { title: string; subtitle: string; profileValue: (typeof activityLevels)[number] }
-  > = {
+  >>(() => ({
     sedentario: {
       title: "Sedentário",
       subtitle: "Trabalho sentado, pouco movimento.",
@@ -1169,7 +1184,7 @@ function LumeFitApp() {
       subtitle: "Treinos pesados diários e rotina ativa.",
       profileValue: "Sou moderadamente ativa",
     },
-  };
+  }), []);
 
   const onboardingPreviewProfile: Profile = useMemo(
     () => ({
@@ -1450,6 +1465,11 @@ function LumeFitApp() {
     const nextPlan = generatePlan(onboardingPreviewProfile);
     setGeneratedPlan(nextPlan);
     setShowPlanPresentation(true);
+    
+    // Pequeno delay para garantir que o elemento foi renderizado antes do scroll
+    setTimeout(() => {
+      planResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }, [onboardingPreviewProfile]);
 
   const shareSummary =
@@ -2073,18 +2093,30 @@ function LumeFitApp() {
                 <div>
                   <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCurrentWeightLabel}</p>
                   <Input
-                    type="number"
-                    value={profile.weight}
-                    onChange={(e) => setProfile((p) => ({ ...p, weight: Number(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={profile.weight || ""}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(",", ".");
+                      if (val === "" || !isNaN(Number(val))) {
+                        setProfile((p) => ({ ...p, weight: val === "" ? 0 : Number(val) }));
+                      }
+                    }}
                     className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
                   />
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingHeightLabel}</p>
                   <Input
-                    type="number"
-                    value={profile.height}
-                    onChange={(e) => setProfile((p) => ({ ...p, height: Number(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={profile.height || ""}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(",", ".");
+                      if (val === "" || !isNaN(Number(val))) {
+                        setProfile((p) => ({ ...p, height: val === "" ? 0 : Number(val) }));
+                      }
+                    }}
                     className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
                   />
                 </div>
@@ -2093,14 +2125,15 @@ function LumeFitApp() {
               <div>
                 <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingTargetWeightLabel}</p>
                 <Input
-                  type="number"
-                  value={profile.targetWeight}
-                  onChange={(e) =>
-                    setProfile((p) => ({
-                      ...p,
-                      targetWeight: Number(e.target.value) || 0,
-                    }))
-                  }
+                  type="text"
+                  inputMode="decimal"
+                  value={profile.targetWeight || ""}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(",", ".");
+                    if (val === "" || !isNaN(Number(val))) {
+                      setProfile((p) => ({ ...p, targetWeight: val === "" ? 0 : Number(val) }));
+                    }
+                  }}
                   className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
                 />
               </div>
@@ -2141,24 +2174,27 @@ function LumeFitApp() {
                       <button
                         type="button"
                         key={item.key}
-                        onClick={() => setSetupActivity(item.key)}
+                        onClick={() => {
+                          setSetupActivity(item.key);
+                          setProfile(p => ({ ...p, activityLevel: onboardingActivityMap[item.key].profileValue }));
+                        }}
                         role="radio"
                         aria-checked={active}
-                        className={`glass-card rounded-2xl p-4 text-left ${
-                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]" : ""
+                        className={`glass-card rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${
+                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5" : ""
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <Icon className="h-6 w-6 text-brand-accent-2" />
+                          <Icon className={`h-6 w-6 ${active ? "text-brand-accent-2" : "text-muted-foreground"}`} />
                           {active ? (
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-accent-2 bg-brand-accent-1/20 text-brand-accent-2">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
                               <Check className="h-4 w-4" />
                             </span>
                           ) : (
                             <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
                           )}
                         </div>
-                        <p className="mt-3 text-2xl font-semibold">{onboardingActivityMap[item.key].title}</p>
+                        <p className={`mt-3 text-2xl font-semibold ${active ? "text-brand-accent-2" : ""}`}>{onboardingActivityMap[item.key].title}</p>
                         <p className="text-sm text-muted-foreground">{onboardingActivityMap[item.key].subtitle}</p>
                       </button>
                     );
@@ -2166,22 +2202,25 @@ function LumeFitApp() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSetupActivity("intenso")}
+                  onClick={() => {
+                    setSetupActivity("intenso");
+                    setProfile(p => ({ ...p, activityLevel: onboardingActivityMap.intenso.profileValue }));
+                  }}
                   role="radio"
                   aria-checked={setupActivity === "intenso"}
-                  className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left ${
+                  className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${
                     setupActivity === "intenso"
-                      ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]"
+                      ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5"
                       : ""
                   }`}
                 >
-                  <Dumbbell className="h-6 w-6 text-brand-accent-2" />
+                  <Dumbbell className={`h-6 w-6 ${setupActivity === "intenso" ? "text-brand-accent-2" : "text-muted-foreground"}`} />
                   <div>
-                    <p className="text-2xl font-semibold">{onboardingActivityMap.intenso.title}</p>
+                    <p className={`text-2xl font-semibold ${setupActivity === "intenso" ? "text-brand-accent-2" : ""}`}>{onboardingActivityMap.intenso.title}</p>
                     <p className="text-sm text-muted-foreground">{onboardingActivityMap.intenso.subtitle}</p>
                   </div>
                   {setupActivity === "intenso" ? (
-                    <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-accent-2 bg-brand-accent-1/20 text-brand-accent-2">
+                    <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
                       <Check className="h-4 w-4" />
                     </span>
                   ) : (
@@ -2202,7 +2241,7 @@ function LumeFitApp() {
             </div>
 
             {showPlanPresentation && generatedPlan ? (
-              <div className="border-t border-glass-border/70 bg-glass/70 p-4">
+              <div ref={planResultRef} className="border-t border-glass-border/70 bg-glass/70 p-4">
                 <article className="glass-card rounded-[20px] p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Apresentação do plano</p>
                   <h3 className="mt-2 text-2xl font-bold text-brand-accent-2">Plano diário recomendado</h3>

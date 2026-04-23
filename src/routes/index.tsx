@@ -561,6 +561,20 @@ function LumeFitApp() {
     }
   };
 
+  const readStorageState = useCallback((): PersistedState => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as PersistedState) : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const updateStorageSnapshot = useCallback((next: PersistedState) => {
+    storageSnapshotRef.current = next;
+    setStorageSnapshot(next);
+  }, []);
+
   const setManagedTimeout = useCallback((callback: () => void, delay: number) => {
     const timeoutId = window.setTimeout(() => {
       timeoutIdsRef.current = timeoutIdsRef.current.filter((id) => id !== timeoutId);

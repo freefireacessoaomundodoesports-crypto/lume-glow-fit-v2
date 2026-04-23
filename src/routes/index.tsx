@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+} from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Camera,
@@ -357,7 +365,7 @@ async function compressImageForStorage(imageSource: string) {
 const initialRecentAnalyses: RecentMealAnalysis[] = [];
 
 const PressableButton = memo(function PressableButton(
-  props: React.ComponentPropsWithoutRef<"button">,
+  props: ComponentPropsWithoutRef<"button">,
 ) {
   return <button {...props} className={`perf-pressable ${props.className || ""}`.trim()} />;
 });

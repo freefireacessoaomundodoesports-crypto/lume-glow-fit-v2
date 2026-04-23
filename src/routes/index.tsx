@@ -772,7 +772,10 @@ function LumeFitApp() {
 
   const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
-  const consumedCalories = entries.reduce((sum, item) => sum + item.calories, 0);
+  const todayKey = getDateKey();
+  const todayEntries = entries.filter((item) => item.timestamp.startsWith(todayKey));
+
+  const consumedCalories = todayEntries.reduce((sum, item) => sum + item.calories, 0);
   const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
   const caloriePercent = Math.min((consumedCalories / profile.calorieGoal) * 100, 100);
   const ringGlow =
@@ -783,9 +786,9 @@ function LumeFitApp() {
         : "var(--color-brand-danger)";
 
   const macros = {
-    protein: entries.reduce((sum, item) => sum + (item.protein || 0), 0),
-    carbs: entries.reduce((sum, item) => sum + (item.carbs || 0), 0),
-    fat: entries.reduce((sum, item) => sum + (item.fat || 0), 0),
+    protein: todayEntries.reduce((sum, item) => sum + (item.protein || 0), 0),
+    carbs: todayEntries.reduce((sum, item) => sum + (item.carbs || 0), 0),
+    fat: todayEntries.reduce((sum, item) => sum + (item.fat || 0), 0),
   };
   const macroProgress = {
     protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
@@ -829,7 +832,7 @@ function LumeFitApp() {
   };
   const onboardingPlanPreview = generatePlan(onboardingPreviewProfile);
 
-  const mealsByType = entries.reduce<Record<MealType, MealEntry[]>>(
+  const mealsByType = todayEntries.reduce<Record<MealType, MealEntry[]>>(
     (acc, item) => {
       acc[item.meal].push(item);
       return acc;

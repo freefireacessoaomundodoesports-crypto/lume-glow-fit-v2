@@ -99,6 +99,9 @@ type MealEntry = {
   meal: MealType;
   foodName: string;
   calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
   quantity: number;
   timestamp: string;
   photo?: string;
@@ -106,13 +109,36 @@ type MealEntry = {
 
 type RecentMealAnalysis = {
   id: string;
-  name: string;
-  image: string;
-  resultId: string;
-  timestampLabel: string;
+  meal_name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  ingredients: MockMealResult["ingredients"];
+  insights: MockMealResult["insights"];
+  nutrition_details: {
+    sodiumMg: number;
+    fiberG: number;
+    sugarsG: number;
+    vitaminAPct: number;
+    vitaminCPct: number;
+    ironPct: number;
+    calciumPct: number;
+    confidence: number;
+    cuisineTag: string;
+    dailyGoalPercent: number;
+  };
+  timestamp: string;
+  image: string | null;
 };
 
 const STORAGE_KEY = "lumefit_state_v1";
+const ONBOARDING_COMPLETE_KEY = "onboarding_complete";
+const ONBOARDING_PROFILE_KEY = "onboarding_profile";
+const LAST_ACTIVE_DATE_KEY = "last_active_date";
+const RECENT_MEAL_ANALYSES_KEY = "recent_meal_analyses";
+const MAX_RECENT_MEALS = 5;
+const MAX_RECENT_IMAGE_LENGTH = 150000;
 
 const trainingPhases = [
   {
@@ -297,43 +323,32 @@ function makePlaceholder(label: string, tone = "#dff7e7") {
   return `data:image/svg+xml;charset=utf-8,${encoded}`;
 }
 
-const initialRecentAnalyses: RecentMealAnalysis[] = [
-  {
-    id: "seed-1",
-    name: "Xima com Matapa",
-    image: makePlaceholder("Xima + Matapa"),
-    resultId: mockMealResults[0].id,
-    timestampLabel: "Hoje, 11:48",
-  },
-  {
-    id: "seed-2",
-    name: "Arroz com Frango",
-    image: makePlaceholder("Arroz + Frango", "#dcfce7"),
-    resultId: mockMealResults[1].id,
-    timestampLabel: "Hoje, 09:10",
-  },
-  {
-    id: "seed-3",
-    name: "Feijão Nhemba",
-    image: makePlaceholder("Feijão Nhemba"),
-    resultId: mockMealResults[2].id,
-    timestampLabel: "Ontem, 20:16",
-  },
-  {
-    id: "seed-4",
-    name: "Peixe com Xima",
-    image: makePlaceholder("Peixe + Xima", "#bbf7d0"),
-    resultId: mockMealResults[3].id,
-    timestampLabel: "Ontem, 13:40",
-  },
-  {
-    id: "seed-5",
-    name: "Frango Legumes",
-    image: makePlaceholder("Frango + Legumes"),
-    resultId: mockMealResults[5].id,
-    timestampLabel: "Ontem, 08:24",
-  },
-];
+function getDateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+async function compressImageForStorage(imageSource: string) {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const instance = new Image();
+    instance.onload = () => resolve(instance);
+    instance.onerror = () => reject(new Error("image_load_failed"));
+    instance.src = imageSource;
+  });
+
+  const canvas = document.createElement("canvas");
+  const maxSize = 400;
+  const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+  canvas.width = Math.max(1, Math.round(img.width * ratio));
+  canvas.height = Math.max(1, Math.round(img.height * ratio));
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL("image/jpeg", 0.5);
+}
+
+const initialRecentAnalyses: RecentMealAnalysis[] = [];
 
 function calcGoal(weight: number, height: number, age: number, activity: string, weeklyGoal: string) {
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
@@ -483,34 +498,135 @@ function LumeFitApp() {
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
+
+  const readState = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as PersistedState) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const writeState = (next: PersistedState) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // silent fail by requirement
+    }
+  };
+
+  const buildRecentAnalysis = (result: MockMealResult, kcal: number, image: string | null): RecentMealAnalysis => ({
+    id: Date.now().toString(),
+    meal_name: result.mealName,
+    calories: kcal,
+    protein: Math.round(result.protein * portionMultiplier),
+    carbs: Math.round(result.carbs * portionMultiplier),
+    fat: Math.round(result.fat * portionMultiplier),
+    ingredients: result.ingredients,
+    insights: result.insights,
+    nutrition_details: {
+      sodiumMg: Math.round(result.sodiumMg * portionMultiplier),
+      fiberG: Number((result.fiberG * portionMultiplier).toFixed(1)),
+      sugarsG: Number((result.sugarsG * portionMultiplier).toFixed(1)),
+      vitaminAPct: Math.round(result.vitaminAPct * portionMultiplier),
+      vitaminCPct: Math.round(result.vitaminCPct * portionMultiplier),
+      ironPct: Math.round(result.ironPct * portionMultiplier),
+      calciumPct: Math.round(result.calciumPct * portionMultiplier),
+      confidence: result.confidence,
+      cuisineTag: result.cuisineTag,
+      dailyGoalPercent: Math.round(result.dailyGoalPercent * portionMultiplier),
+    },
+    timestamp: new Date().toISOString(),
+    image,
+  });
+
+  const resetDailyStates = () => {
+    setEntries([]);
+    setWaterIntakeMl(0);
+    setExpandedMeals([]);
+    setSelectedMeal("almoco");
+    setMealStage("camera");
+    setPreviewImage(null);
+    setActiveResult(null);
+    setPortionMultiplier(1);
+    setNutritionOpen(false);
+    setExpandedIngredient(null);
+    setAnalysisProgress(0);
+    setAnalysisMessageIndex(0);
+    setAnimatedKcal(0);
+    setAnimatedProtein(0);
+    setAnimatedCarbs(0);
+    setAnimatedFat(0);
+    setShowConfetti(false);
+    setShowToast(false);
+    setToastMessage("");
+    setIsViewingSavedAnalysis(false);
+  };
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-
+    const parsed = readState();
     try {
-      const parsed = JSON.parse(raw) as PersistedState;
+      const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
+      const onboardingComplete = onboardingFlagRaw === "true";
 
-      if (parsed.profile) {
+      if (onboardingComplete) setOnboardingDone(true);
+
+      let restoredProfile = parsed.profile;
+      if (!restoredProfile) {
+        try {
+          const onboardingProfileRaw = localStorage.getItem(ONBOARDING_PROFILE_KEY);
+          if (onboardingProfileRaw) {
+            restoredProfile = JSON.parse(onboardingProfileRaw) as Profile;
+          }
+        } catch {
+          // silent fail
+        }
+      }
+
+      if (restoredProfile) {
         const nextProfile = {
-          ...parsed.profile,
+          ...restoredProfile,
           hydrationGoalMl:
-            typeof parsed.profile.hydrationGoalMl === "number"
-              ? parsed.profile.hydrationGoalMl
-              : calcHydrationGoal(parsed.profile.weight, parsed.profile.activityLevel),
+            typeof restoredProfile.hydrationGoalMl === "number"
+              ? restoredProfile.hydrationGoalMl
+              : calcHydrationGoal(restoredProfile.weight, restoredProfile.activityLevel),
           macroGoals:
-            parsed.profile.macroGoals || calcMacroGoals(parsed.profile.calorieGoal || 1400),
+            restoredProfile.macroGoals || calcMacroGoals(restoredProfile.calorieGoal || 1400),
         };
         setProfile(nextProfile);
       }
       if (parsed.entries) setEntries(parsed.entries);
       if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
-      if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
+      if (!onboardingComplete && typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
       if (typeof parsed.firstUseAt === "string") setFirstUseAt(parsed.firstUseAt);
       if (typeof parsed.previousWeight === "number") setPreviousWeight(parsed.previousWeight);
       if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
-      if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
-        setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
+
+      try {
+        const recentRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
+        if (recentRaw) {
+          const recent = JSON.parse(recentRaw) as RecentMealAnalysis[];
+          setRecentAnalyses(Array.isArray(recent) ? recent.slice(0, MAX_RECENT_MEALS) : []);
+        } else if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
+          setRecentAnalyses(parsed.recentAnalyses.slice(0, MAX_RECENT_MEALS));
+        } else {
+          setRecentAnalyses([]);
+        }
+      } catch {
+        setRecentAnalyses([]);
+      }
+
+      try {
+        const lastActiveDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
+        const todayKey = getDateKey();
+        if (lastActiveDate && lastActiveDate !== todayKey) {
+          resetDailyStates();
+        }
+        localStorage.setItem(LAST_ACTIVE_DATE_KEY, todayKey);
+      } catch {
+        // silent fail
       }
 
       if (typeof parsed.lastSeenAt === "string") {
@@ -521,28 +637,29 @@ function LumeFitApp() {
       }
       if (parsed.appLanguage === "pt" || parsed.appLanguage === "en") setAppLanguage(parsed.appLanguage);
       if (parsed.appTheme === "light" || parsed.appTheme === "dark") setAppTheme(parsed.appTheme);
-      setView(parsed.onboardingDone ? "home" : "setup");
+      setView(onboardingComplete || parsed.onboardingDone ? "home" : "setup");
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // silent fail
+      }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        profile,
-        entries,
-        recentAnalyses,
-        waterIntakeMl,
-        onboardingDone,
-        completedTrainingPhases,
-        firstUseAt,
-        previousWeight,
-        appLanguage,
-        appTheme,
-      }),
-    );
+    writeState({
+      profile,
+      entries,
+      recentAnalyses,
+      waterIntakeMl,
+      onboardingDone,
+      completedTrainingPhases,
+      firstUseAt,
+      previousWeight,
+      appLanguage,
+      appTheme,
+    });
   }, [
     profile,
     entries,
@@ -557,24 +674,20 @@ function LumeFitApp() {
   ]);
 
   useEffect(() => {
-    const saveLastSeenAt = () => {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      let parsed: PersistedState = {};
-      if (raw) {
-        try {
-          parsed = JSON.parse(raw) as PersistedState;
-        } catch {
-          parsed = {};
-        }
-      }
+    try {
+      localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(recentAnalyses.slice(0, MAX_RECENT_MEALS)));
+    } catch {
+      // silent fail
+    }
+  }, [recentAnalyses]);
 
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          ...parsed,
-          lastSeenAt: new Date().toISOString(),
-        }),
-      );
+  useEffect(() => {
+    const saveLastSeenAt = () => {
+      const parsed = readState();
+      writeState({
+        ...parsed,
+        lastSeenAt: new Date().toISOString(),
+      });
     };
 
     const onVisibilityChange = () => {
@@ -659,7 +772,10 @@ function LumeFitApp() {
 
   const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
-  const consumedCalories = entries.reduce((sum, item) => sum + item.calories, 0);
+  const todayKey = getDateKey();
+  const todayEntries = entries.filter((item) => item.timestamp.startsWith(todayKey));
+
+  const consumedCalories = todayEntries.reduce((sum, item) => sum + item.calories, 0);
   const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
   const caloriePercent = Math.min((consumedCalories / profile.calorieGoal) * 100, 100);
   const ringGlow =
@@ -670,9 +786,9 @@ function LumeFitApp() {
         : "var(--color-brand-danger)";
 
   const macros = {
-    protein: (consumedCalories * 0.3) / 4,
-    carbs: (consumedCalories * 0.45) / 4,
-    fat: (consumedCalories * 0.25) / 9,
+    protein: todayEntries.reduce((sum, item) => sum + (item.protein || 0), 0),
+    carbs: todayEntries.reduce((sum, item) => sum + (item.carbs || 0), 0),
+    fat: todayEntries.reduce((sum, item) => sum + (item.fat || 0), 0),
   };
   const macroProgress = {
     protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
@@ -716,7 +832,7 @@ function LumeFitApp() {
   };
   const onboardingPlanPreview = generatePlan(onboardingPreviewProfile);
 
-  const mealsByType = entries.reduce<Record<MealType, MealEntry[]>>(
+  const mealsByType = todayEntries.reduce<Record<MealType, MealEntry[]>>(
     (acc, item) => {
       acc[item.meal].push(item);
       return acc;
@@ -751,6 +867,7 @@ function LumeFitApp() {
     const fileUrl = URL.createObjectURL(file);
     setPreviewImage(fileUrl);
     setActiveResult(pickMockResult(file.name));
+    setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
     setExpandedIngredient(null);
@@ -759,11 +876,17 @@ function LumeFitApp() {
   const confirmAddToDiary = () => {
     if (!activeResult) return;
     const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
+    const protein = Math.round(activeResult.protein * portionMultiplier);
+    const carbs = Math.round(activeResult.carbs * portionMultiplier);
+    const fat = Math.round(activeResult.fat * portionMultiplier);
     const nextEntry: MealEntry = {
       id: crypto.randomUUID(),
       meal: selectedMeal,
       foodName: activeResult.mealName,
       calories: kcal,
+      protein,
+      carbs,
+      fat,
       quantity: portionMultiplier,
       timestamp: new Date().toISOString(),
       photo: previewImage || undefined,
@@ -771,17 +894,47 @@ function LumeFitApp() {
 
     setIsSavingMeal(true);
     setEntries((prev) => [nextEntry, ...prev]);
-    setRecentAnalyses((prev) => {
-      const stamp = `${appLanguage === "en" ? "Today" : "Hoje"}, ${currentTimestamp}`;
-      const first: RecentMealAnalysis = {
-        id: crypto.randomUUID(),
-        name: activeResult.mealName,
-        image: previewImage || makePlaceholder(activeResult.mealName),
-        resultId: activeResult.id,
-        timestampLabel: stamp,
-      };
-      return [first, ...prev].slice(0, 5);
-    });
+    void (async () => {
+      let compressedImage: string | null = null;
+
+      if (previewImage) {
+        try {
+          const compressed = await compressImageForStorage(previewImage);
+          if (compressed && compressed.length < MAX_RECENT_IMAGE_LENGTH) {
+            compressedImage = compressed;
+          }
+        } catch {
+          compressedImage = null;
+        }
+      }
+
+      const baseAnalysis = buildRecentAnalysis(activeResult, kcal, compressedImage);
+      let safeList: RecentMealAnalysis[] = [];
+
+      try {
+        const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
+        const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
+        safeList = [baseAnalysis, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+        localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+      } catch (error) {
+        const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
+        if (isQuota) {
+          const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
+          try {
+            const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
+            const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
+            safeList = [withoutImage, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+            localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+          } catch {
+            safeList = [withoutImage];
+          }
+        } else {
+          safeList = [buildRecentAnalysis(activeResult, kcal, null)];
+        }
+      }
+
+      setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
+    })();
 
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
     setToastMessage(
@@ -796,6 +949,7 @@ function LumeFitApp() {
     setTimeout(() => {
       setIsSavingMeal(false);
       setMealStage("camera");
+      setIsViewingSavedAnalysis(false);
       setView("home");
     }, 1600);
 
@@ -1277,6 +1431,14 @@ function LumeFitApp() {
 
   const applyGeneratedPlan = () => {
     if (!generatedPlan) return;
+    const finalizedProfile = {
+      ...profile,
+      activityLevel: onboardingActivityMap[setupActivity].profileValue,
+      calorieGoal: generatedPlan.calorieGoal,
+      hydrationGoalMl: generatedPlan.hydrationGoalMl,
+      macroGoals: generatedPlan.macroGoals,
+    };
+
     setProfile((prev) => ({
       ...prev,
       activityLevel: onboardingActivityMap[setupActivity].profileValue,
@@ -1286,6 +1448,26 @@ function LumeFitApp() {
     }));
     setWaterIntakeMl(0);
     setOnboardingDone(true);
+    try {
+      localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
+      localStorage.setItem(
+        ONBOARDING_PROFILE_KEY,
+        JSON.stringify({
+          name: finalizedProfile.name,
+          age: finalizedProfile.age,
+          city: finalizedProfile.city,
+          weight: finalizedProfile.weight,
+          height: finalizedProfile.height,
+          target_weight: finalizedProfile.targetWeight,
+          goal: finalizedProfile.weeklyGoal,
+          activity_level: finalizedProfile.activityLevel,
+          daily_calorie_goal: finalizedProfile.calorieGoal,
+          date_joined: firstUseAt,
+        }),
+      );
+    } catch {
+      // silent fail
+    }
     setShowPlanPresentation(false);
     setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
@@ -1789,21 +1971,48 @@ function LumeFitApp() {
                               type="button"
                               key={item.id}
                               onClick={() => {
-                                const matched = mockMealResults.find((m) => m.id === item.resultId) || mockMealResults[0];
-                                setPreviewImage(item.image);
+                                const matched: MockMealResult = {
+                                  id: `saved-${item.id}`,
+                                  mealName: item.meal_name,
+                                  cuisineTag: item.nutrition_details.cuisineTag,
+                                  confidence: item.nutrition_details.confidence,
+                                  estimatedKcal: item.calories,
+                                  protein: item.protein,
+                                  carbs: item.carbs,
+                                  fat: item.fat,
+                                  dailyGoalPercent: item.nutrition_details.dailyGoalPercent,
+                                  sodiumMg: item.nutrition_details.sodiumMg,
+                                  fiberG: item.nutrition_details.fiberG,
+                                  sugarsG: item.nutrition_details.sugarsG,
+                                  vitaminAPct: item.nutrition_details.vitaminAPct,
+                                  vitaminCPct: item.nutrition_details.vitaminCPct,
+                                  ironPct: item.nutrition_details.ironPct,
+                                  calciumPct: item.nutrition_details.calciumPct,
+                                  imageSeed: "saved",
+                                  ingredients: item.ingredients,
+                                  insights: item.insights,
+                                };
+                                setPreviewImage(item.image ?? null);
                                 setActiveResult(matched);
                                 setMealStage("result");
+                                setIsViewingSavedAnalysis(true);
                                 setPortionMultiplier(1);
                               }}
                               className="w-[82px] shrink-0 text-left"
                             >
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
-                                loading="lazy"
-                              />
-                              <p className="mt-1 truncate text-[11px] font-medium">{item.name}</p>
+                              {item.image ? (
+                                <img
+                                  src={item.image}
+                                  alt={item.meal_name}
+                                  className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
+                                  🍽️
+                                </div>
+                              )}
+                              <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
                             </button>
                           ))}
                         </div>
@@ -2057,9 +2266,17 @@ function LumeFitApp() {
 
                       <div className="frosted-nav fixed bottom-20 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[18px] p-3 sm:max-w-md">
                         <div className="space-y-2">
-                          <Button className="h-11 w-full" onClick={confirmAddToDiary} disabled={isSavingMeal}>
+                          <Button
+                            className="h-11 w-full"
+                            onClick={confirmAddToDiary}
+                            disabled={isSavingMeal || isViewingSavedAnalysis}
+                          >
                             <Check className="h-4 w-4" />
-                            {isSavingMeal ? "A guardar..." : "Adicionar ao Diário"}
+                            {isViewingSavedAnalysis
+                              ? "Visualização guardada"
+                              : isSavingMeal
+                                ? "A guardar..."
+                                : "Adicionar ao Diário"}
                           </Button>
                           <Button variant="outline" className="h-10 w-full" onClick={resetMealFlow}>
                             Analisar Outro Prato
@@ -2296,14 +2513,20 @@ function LumeFitApp() {
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    localStorage.removeItem(STORAGE_KEY);
+                    try {
+                      localStorage.removeItem(STORAGE_KEY);
+                      localStorage.removeItem(RECENT_MEAL_ANALYSES_KEY);
+                      localStorage.removeItem(LAST_ACTIVE_DATE_KEY);
+                    } catch {
+                      // silent fail
+                    }
                     setEntries([]);
                     setRecentAnalyses(initialRecentAnalyses);
                     setWaterIntakeMl(0);
-                    setOnboardingDone(false);
+                    setOnboardingDone(true);
                     setShowPlanPresentation(false);
                     setGeneratedPlan(null);
-                    setView("setup");
+                    setView("home");
                   }}
                 >
                   Logout

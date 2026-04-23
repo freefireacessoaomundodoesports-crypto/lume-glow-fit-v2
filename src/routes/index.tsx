@@ -323,6 +323,31 @@ function makePlaceholder(label: string, tone = "#dff7e7") {
   return `data:image/svg+xml;charset=utf-8,${encoded}`;
 }
 
+function getDateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+async function compressImageForStorage(imageSource: string) {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const instance = new Image();
+    instance.onload = () => resolve(instance);
+    instance.onerror = () => reject(new Error("image_load_failed"));
+    instance.src = imageSource;
+  });
+
+  const canvas = document.createElement("canvas");
+  const maxSize = 400;
+  const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+  canvas.width = Math.max(1, Math.round(img.width * ratio));
+  canvas.height = Math.max(1, Math.round(img.height * ratio));
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL("image/jpeg", 0.5);
+}
+
 const initialRecentAnalyses: RecentMealAnalysis[] = [
   {
     id: "seed-1",

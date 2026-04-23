@@ -619,13 +619,80 @@ function LumeFitApp() {
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
+
+  const readState = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as PersistedState) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const writeState = (next: PersistedState) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // silent fail by requirement
+    }
+  };
+
+  const buildRecentAnalysis = (result: MockMealResult, kcal: number, image: string | null): RecentMealAnalysis => ({
+    id: Date.now().toString(),
+    meal_name: result.mealName,
+    calories: kcal,
+    protein: Math.round(result.protein * portionMultiplier),
+    carbs: Math.round(result.carbs * portionMultiplier),
+    fat: Math.round(result.fat * portionMultiplier),
+    ingredients: result.ingredients,
+    insights: result.insights,
+    nutrition_details: {
+      sodiumMg: Math.round(result.sodiumMg * portionMultiplier),
+      fiberG: Number((result.fiberG * portionMultiplier).toFixed(1)),
+      sugarsG: Number((result.sugarsG * portionMultiplier).toFixed(1)),
+      vitaminAPct: Math.round(result.vitaminAPct * portionMultiplier),
+      vitaminCPct: Math.round(result.vitaminCPct * portionMultiplier),
+      ironPct: Math.round(result.ironPct * portionMultiplier),
+      calciumPct: Math.round(result.calciumPct * portionMultiplier),
+      confidence: result.confidence,
+      cuisineTag: result.cuisineTag,
+      dailyGoalPercent: Math.round(result.dailyGoalPercent * portionMultiplier),
+    },
+    timestamp: new Date().toISOString(),
+    image,
+  });
+
+  const resetDailyStates = () => {
+    setEntries([]);
+    setWaterIntakeMl(0);
+    setExpandedMeals([]);
+    setSelectedMeal("almoco");
+    setMealStage("camera");
+    setPreviewImage(null);
+    setActiveResult(null);
+    setPortionMultiplier(1);
+    setNutritionOpen(false);
+    setExpandedIngredient(null);
+    setAnalysisProgress(0);
+    setAnalysisMessageIndex(0);
+    setAnimatedKcal(0);
+    setAnimatedProtein(0);
+    setAnimatedCarbs(0);
+    setAnimatedFat(0);
+    setShowConfetti(false);
+    setShowToast(false);
+    setToastMessage("");
+    setIsViewingSavedAnalysis(false);
+  };
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-
+    const parsed = readState();
     try {
-      const parsed = JSON.parse(raw) as PersistedState;
+      const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
+      const onboardingComplete = onboardingFlagRaw === "true";
+
+      if (onboardingComplete) setOnboardingDone(true);
 
       if (parsed.profile) {
         const nextProfile = {
@@ -641,12 +708,34 @@ function LumeFitApp() {
       }
       if (parsed.entries) setEntries(parsed.entries);
       if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
-      if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
+      if (!onboardingComplete && typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
       if (typeof parsed.firstUseAt === "string") setFirstUseAt(parsed.firstUseAt);
       if (typeof parsed.previousWeight === "number") setPreviousWeight(parsed.previousWeight);
       if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
-      if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
-        setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
+
+      try {
+        const recentRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
+        if (recentRaw) {
+          const recent = JSON.parse(recentRaw) as RecentMealAnalysis[];
+          setRecentAnalyses(Array.isArray(recent) ? recent.slice(0, MAX_RECENT_MEALS) : []);
+        } else if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
+          setRecentAnalyses(parsed.recentAnalyses.slice(0, MAX_RECENT_MEALS));
+        } else {
+          setRecentAnalyses([]);
+        }
+      } catch {
+        setRecentAnalyses([]);
+      }
+
+      try {
+        const lastActiveDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
+        const todayKey = getDateKey();
+        if (lastActiveDate && lastActiveDate !== todayKey) {
+          resetDailyStates();
+        }
+        localStorage.setItem(LAST_ACTIVE_DATE_KEY, todayKey);
+      } catch {
+        // silent fail
       }
 
       if (typeof parsed.lastSeenAt === "string") {
@@ -657,28 +746,29 @@ function LumeFitApp() {
       }
       if (parsed.appLanguage === "pt" || parsed.appLanguage === "en") setAppLanguage(parsed.appLanguage);
       if (parsed.appTheme === "light" || parsed.appTheme === "dark") setAppTheme(parsed.appTheme);
-      setView(parsed.onboardingDone ? "home" : "setup");
+      setView(onboardingComplete || parsed.onboardingDone ? "home" : "setup");
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // silent fail
+      }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        profile,
-        entries,
-        recentAnalyses,
-        waterIntakeMl,
-        onboardingDone,
-        completedTrainingPhases,
-        firstUseAt,
-        previousWeight,
-        appLanguage,
-        appTheme,
-      }),
-    );
+    writeState({
+      profile,
+      entries,
+      recentAnalyses,
+      waterIntakeMl,
+      onboardingDone,
+      completedTrainingPhases,
+      firstUseAt,
+      previousWeight,
+      appLanguage,
+      appTheme,
+    });
   }, [
     profile,
     entries,
@@ -694,23 +784,11 @@ function LumeFitApp() {
 
   useEffect(() => {
     const saveLastSeenAt = () => {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      let parsed: PersistedState = {};
-      if (raw) {
-        try {
-          parsed = JSON.parse(raw) as PersistedState;
-        } catch {
-          parsed = {};
-        }
-      }
-
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          ...parsed,
-          lastSeenAt: new Date().toISOString(),
-        }),
-      );
+      const parsed = readState();
+      writeState({
+        ...parsed,
+        lastSeenAt: new Date().toISOString(),
+      });
     };
 
     const onVisibilityChange = () => {

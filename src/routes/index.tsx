@@ -926,18 +926,28 @@ function LumeFitApp() {
     },
   };
 
-  const onboardingPreviewProfile: Profile = {
-    ...profile,
-    activityLevel: onboardingActivityMap[setupActivity].profileValue,
-  };
-  const onboardingPlanPreview = generatePlan(onboardingPreviewProfile);
+  const onboardingPreviewProfile: Profile = useMemo(
+    () => ({
+      ...profile,
+      activityLevel: onboardingActivityMap[setupActivity].profileValue,
+    }),
+    [profile, onboardingActivityMap, setupActivity],
+  );
+  const onboardingPlanPreview = useMemo(
+    () => generatePlan(onboardingPreviewProfile),
+    [onboardingPreviewProfile],
+  );
 
-  const mealsByType = todayEntries.reduce<Record<MealType, MealEntry[]>>(
-    (acc, item) => {
-      acc[item.meal].push(item);
-      return acc;
-    },
-    { "pequeno-almoco": [], almoco: [], jantar: [], lanches: [] },
+  const mealsByType = useMemo(
+    () =>
+      todayEntries.reduce<Record<MealType, MealEntry[]>>(
+        (acc, item) => {
+          acc[item.meal].push(item);
+          return acc;
+        },
+        { "pequeno-almoco": [], almoco: [], jantar: [], lanches: [] },
+      ),
+    [todayEntries],
   );
 
   const weeklyBars = useMemo(

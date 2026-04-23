@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+} from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Camera,
@@ -356,6 +364,41 @@ async function compressImageForStorage(imageSource: string) {
 
 const initialRecentAnalyses: RecentMealAnalysis[] = [];
 
+const PressableButton = memo(function PressableButton(
+  props: ComponentPropsWithoutRef<"button">,
+) {
+  return <button {...props} className={`perf-pressable ${props.className || ""}`.trim()} />;
+});
+
+type RecentAnalysisItemProps = {
+  item: RecentMealAnalysis;
+  onOpen: (item: RecentMealAnalysis) => void;
+};
+
+const RecentAnalysisItem = memo(function RecentAnalysisItem({ item, onOpen }: RecentAnalysisItemProps) {
+  const handleOpen = useCallback(() => {
+    onOpen(item);
+  }, [item, onOpen]);
+
+  return (
+    <PressableButton type="button" onClick={handleOpen} className="w-[82px] shrink-0 text-left recent-meal-item">
+      {item.image ? (
+        <img
+          src={item.image}
+          alt={item.meal_name}
+          className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
+          🍽️
+        </div>
+      )}
+      <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
+    </PressableButton>
+  );
+});
+
 function calcGoal(weight: number, height: number, age: number, activity: string, weeklyGoal: string) {
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
   const activityFactor =
@@ -504,16 +547,10 @@ function LumeFitApp() {
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
+  const timeoutIdsRef = useRef<number[]>([]);
+  const storageSnapshotRef = useRef<PersistedState>({});
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
-
-  const readState = () => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as PersistedState) : {};
-    } catch {
-      return {};
-    }
-  };
 
   const writeState = (next: PersistedState) => {
     try {
@@ -522,6 +559,28 @@ function LumeFitApp() {
       // silent fail by requirement
     }
   };
+
+  const readStorageState = useCallback((): PersistedState => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as PersistedState) : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const updateStorageSnapshot = useCallback((next: PersistedState) => {
+    storageSnapshotRef.current = next;
+  }, []);
+
+  const setManagedTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = window.setTimeout(() => {
+      timeoutIdsRef.current = timeoutIdsRef.current.filter((id) => id !== timeoutId);
+      callback();
+    }, delay);
+    timeoutIdsRef.current.push(timeoutId);
+    return timeoutId;
+  }, []);
 
   const buildRecentAnalysis = (result: MockMealResult, kcal: number, image: string | null): RecentMealAnalysis => ({
     id: Date.now().toString(),
@@ -572,7 +631,8 @@ function LumeFitApp() {
   };
 
   useEffect(() => {
-    const parsed = readState();
+    const parsed = readStorageState();
+    updateStorageSnapshot(parsed);
     try {
       const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
       const onboardingComplete = onboardingFlagRaw === "true";
@@ -651,10 +711,10 @@ function LumeFitApp() {
         // silent fail
       }
     }
-  }, []);
+  }, [readStorageState, updateStorageSnapshot]);
 
   useEffect(() => {
-    writeState({
+    const nextState: PersistedState = {
       profile,
       entries,
       recentAnalyses,
@@ -665,7 +725,9 @@ function LumeFitApp() {
       previousWeight,
       appLanguage,
       appTheme,
-    });
+    };
+    updateStorageSnapshot(nextState);
+    writeState(nextState);
   }, [
     profile,
     entries,
@@ -677,6 +739,7 @@ function LumeFitApp() {
     previousWeight,
     appLanguage,
     appTheme,
+    updateStorageSnapshot,
   ]);
 
   useEffect(() => {
@@ -689,7 +752,7 @@ function LumeFitApp() {
 
   useEffect(() => {
     const saveLastSeenAt = () => {
-      const parsed = readState();
+      const parsed = storageSnapshotRef.current;
       writeState({
         ...parsed,
         lastSeenAt: new Date().toISOString(),
@@ -708,6 +771,17 @@ function LumeFitApp() {
     return () => {
       window.removeEventListener("beforeunload", saveLastSeenAt);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
+      timeoutIdsRef.current = [];
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
     };
   }, []);
 
@@ -779,11 +853,23 @@ function LumeFitApp() {
   const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
   const todayKey = getDateKey();
-  const todayEntries = entries.filter((item) => item.timestamp.startsWith(todayKey));
+  const todayEntries = useMemo(
+    () => entries.filter((item) => item.timestamp.startsWith(todayKey)),
+    [entries, todayKey],
+  );
 
-  const consumedCalories = todayEntries.reduce((sum, item) => sum + item.calories, 0);
-  const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
-  const caloriePercent = Math.min((consumedCalories / profile.calorieGoal) * 100, 100);
+  const consumedCalories = useMemo(
+    () => todayEntries.reduce((sum, item) => sum + item.calories, 0),
+    [todayEntries],
+  );
+  const remainingCalories = useMemo(
+    () => Math.max(profile.calorieGoal - consumedCalories, 0),
+    [profile.calorieGoal, consumedCalories],
+  );
+  const caloriePercent = useMemo(
+    () => Math.min((consumedCalories / profile.calorieGoal) * 100, 100),
+    [consumedCalories, profile.calorieGoal],
+  );
   const ringGlow =
     caloriePercent < 70
       ? "var(--color-brand-success)"
@@ -791,16 +877,22 @@ function LumeFitApp() {
         ? "var(--color-brand-warning)"
         : "var(--color-brand-danger)";
 
-  const macros = {
-    protein: todayEntries.reduce((sum, item) => sum + (item.protein || 0), 0),
-    carbs: todayEntries.reduce((sum, item) => sum + (item.carbs || 0), 0),
-    fat: todayEntries.reduce((sum, item) => sum + (item.fat || 0), 0),
-  };
-  const macroProgress = {
-    protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
-    carbs: Math.min((macros.carbs / Math.max(profile.macroGoals.carbs, 1)) * 100, 100),
-    fat: Math.min((macros.fat / Math.max(profile.macroGoals.fat, 1)) * 100, 100),
-  };
+  const macros = useMemo(
+    () => ({
+      protein: todayEntries.reduce((sum, item) => sum + (item.protein || 0), 0),
+      carbs: todayEntries.reduce((sum, item) => sum + (item.carbs || 0), 0),
+      fat: todayEntries.reduce((sum, item) => sum + (item.fat || 0), 0),
+    }),
+    [todayEntries],
+  );
+  const macroProgress = useMemo(
+    () => ({
+      protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
+      carbs: Math.min((macros.carbs / Math.max(profile.macroGoals.carbs, 1)) * 100, 100),
+      fat: Math.min((macros.fat / Math.max(profile.macroGoals.fat, 1)) * 100, 100),
+    }),
+    [macros, profile.macroGoals],
+  );
 
   const hydrationPercent = Math.min(100, (waterIntakeMl / Math.max(profile.hydrationGoalMl, 1)) * 100);
   const hydrationGoalLiters = (profile.hydrationGoalMl / 1000).toFixed(1);
@@ -832,18 +924,28 @@ function LumeFitApp() {
     },
   };
 
-  const onboardingPreviewProfile: Profile = {
-    ...profile,
-    activityLevel: onboardingActivityMap[setupActivity].profileValue,
-  };
-  const onboardingPlanPreview = generatePlan(onboardingPreviewProfile);
+  const onboardingPreviewProfile: Profile = useMemo(
+    () => ({
+      ...profile,
+      activityLevel: onboardingActivityMap[setupActivity].profileValue,
+    }),
+    [profile, onboardingActivityMap, setupActivity],
+  );
+  const onboardingPlanPreview = useMemo(
+    () => generatePlan(onboardingPreviewProfile),
+    [onboardingPreviewProfile],
+  );
 
-  const mealsByType = todayEntries.reduce<Record<MealType, MealEntry[]>>(
-    (acc, item) => {
-      acc[item.meal].push(item);
-      return acc;
-    },
-    { "pequeno-almoco": [], almoco: [], jantar: [], lanches: [] },
+  const mealsByType = useMemo(
+    () =>
+      todayEntries.reduce<Record<MealType, MealEntry[]>>(
+        (acc, item) => {
+          acc[item.meal].push(item);
+          return acc;
+        },
+        { "pequeno-almoco": [], almoco: [], jantar: [], lanches: [] },
+      ),
+    [todayEntries],
   );
 
   const weeklyBars = useMemo(
@@ -865,21 +967,66 @@ function LumeFitApp() {
     document.documentElement.lang = appLanguage === "en" ? "en" : "pt-MZ";
   }, [appLanguage, appTheme]);
 
+  useEffect(() => {
+    const isLowEnd =
+      (typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 2) ||
+      (typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === "number" &&
+        ((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 0) <= 2);
+    document.documentElement.classList.toggle("low-end-device", isLowEnd);
+    return () => {
+      document.documentElement.classList.remove("low-end-device");
+    };
+  }, []);
+
   const shellClass =
     "mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5 text-foreground animate-fade-in sm:max-w-2xl";
 
-  const handleImagePick = (file: File | null) => {
+  const handleOpenSavedAnalysis = useCallback((item: RecentMealAnalysis) => {
+    const matched: MockMealResult = {
+      id: `saved-${item.id}`,
+      mealName: item.meal_name,
+      cuisineTag: item.nutrition_details.cuisineTag,
+      confidence: item.nutrition_details.confidence,
+      estimatedKcal: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      dailyGoalPercent: item.nutrition_details.dailyGoalPercent,
+      sodiumMg: item.nutrition_details.sodiumMg,
+      fiberG: item.nutrition_details.fiberG,
+      sugarsG: item.nutrition_details.sugarsG,
+      vitaminAPct: item.nutrition_details.vitaminAPct,
+      vitaminCPct: item.nutrition_details.vitaminCPct,
+      ironPct: item.nutrition_details.ironPct,
+      calciumPct: item.nutrition_details.calciumPct,
+      imageSeed: "saved",
+      ingredients: item.ingredients,
+      insights: item.insights,
+    };
+    setPreviewImage(item.image ?? null);
+    setActiveResult(matched);
+    setMealStage("result");
+    setIsViewingSavedAnalysis(true);
+    setPortionMultiplier(1);
+  }, []);
+
+  const handleImagePick = useCallback((file: File | null) => {
     if (!file) return;
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
     const fileUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = fileUrl;
     setPreviewImage(fileUrl);
     setActiveResult(pickMockResult(file.name));
     setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
     setExpandedIngredient(null);
-  };
+  }, []);
 
-  const confirmAddToDiary = () => {
+  const confirmAddToDiary = useCallback(() => {
     if (!activeResult) return;
     const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
     const protein = Math.round(activeResult.protein * portionMultiplier);
@@ -918,18 +1065,14 @@ function LumeFitApp() {
       let safeList: RecentMealAnalysis[] = [];
 
       try {
-        const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
-        const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
-        safeList = [baseAnalysis, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+        safeList = [baseAnalysis, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
         localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
       } catch (error) {
         const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
         if (isQuota) {
           const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
           try {
-            const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
-            const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
-            safeList = [withoutImage, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+            safeList = [withoutImage, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
             localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
           } catch {
             safeList = [withoutImage];
@@ -951,19 +1094,37 @@ function LumeFitApp() {
     setShowToast(true);
     setShowConfetti(true);
 
-    setTimeout(() => setShowConfetti(false), 1500);
-    setTimeout(() => {
+    setManagedTimeout(() => setShowConfetti(false), 1500);
+    setManagedTimeout(() => {
       setIsSavingMeal(false);
       setMealStage("camera");
       setIsViewingSavedAnalysis(false);
       setView("home");
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
     }, 1600);
 
-    setTimeout(() => setShowToast(false), 2600);
-  };
+    setManagedTimeout(() => setShowToast(false), 2600);
+  }, [
+    activeResult,
+    appLanguage,
+    buildRecentAnalysis,
+    localizedMeals,
+    portionMultiplier,
+    previewImage,
+    recentAnalyses,
+    selectedMeal,
+    setManagedTimeout,
+  ]);
 
-  const resetMealFlow = () => {
+  const resetMealFlow = useCallback(() => {
     setMealStage("camera");
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
     setPreviewImage(null);
     setActiveResult(null);
     setPortionMultiplier(1);
@@ -971,13 +1132,13 @@ function LumeFitApp() {
     setExpandedIngredient(null);
     setAnalysisProgress(0);
     setAnalysisMessageIndex(0);
-  };
+  }, []);
 
-  const handleGeneratePlan = () => {
+  const handleGeneratePlan = useCallback(() => {
     const nextPlan = generatePlan(onboardingPreviewProfile);
     setGeneratedPlan(nextPlan);
     setShowPlanPresentation(true);
-  };
+  }, [onboardingPreviewProfile]);
 
   const shareSummary =
     appLanguage === "en"
@@ -989,7 +1150,7 @@ function LumeFitApp() {
       : `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
   const activeShareSummary = shareMode === "weight" ? weightShareSummary : shareSummary;
 
-  const handleGenerateShareImage = async () => {
+  const handleGenerateShareImage = useCallback(async () => {
     setIsGeneratingShareImage(true);
     try {
       const isWeightMode = shareMode === "weight";
@@ -1217,7 +1378,7 @@ function LumeFitApp() {
         setShareImageUrl(canvas.toDataURL("image/png"));
         setToastMessage(t.toastImageGenerated);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 1800);
+        setManagedTimeout(() => setShowToast(false), 1800);
         return;
       }
 
@@ -1374,25 +1535,40 @@ function LumeFitApp() {
       setShareImageUrl(canvas.toDataURL("image/png"));
       setToastMessage(t.toastImageGenerated);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 1800);
+      setManagedTimeout(() => setShowToast(false), 1800);
     } catch {
       setToastMessage(t.toastImageFailed);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 2200);
+      setManagedTimeout(() => setShowToast(false), 2200);
     } finally {
       setIsGeneratingShareImage(false);
     }
-  };
+  }, [
+    activeShareSummary,
+    appLanguage,
+    consumedCalories,
+    macroProgress,
+    macros,
+    portionMultiplier,
+    previousWeight,
+    profile,
+    setManagedTimeout,
+    shareMode,
+    t.toastImageFailed,
+    t.toastImageGenerated,
+    waterIntakeMl,
+    weightHistory,
+  ]);
 
-  const handleDownloadShareImage = () => {
+  const handleDownloadShareImage = useCallback(() => {
     if (!shareImageUrl) return;
     const link = document.createElement("a");
     link.href = shareImageUrl;
     link.download = `${shareMode === "weight" ? (appLanguage === "en" ? "lumefit-weight" : "lumefit-peso") : appLanguage === "en" ? "lumefit-share" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
     link.click();
-  };
+  }, [appLanguage, shareImageUrl, shareMode]);
 
-  const handleNativeShare = async () => {
+  const handleNativeShare = useCallback(async () => {
     if (!shareImageUrl || !navigator.share) return;
     const response = await fetch(shareImageUrl);
     const blob = await response.blob();
@@ -1414,9 +1590,9 @@ function LumeFitApp() {
       text: activeShareSummary,
       files: [file],
     });
-  };
+  }, [activeShareSummary, appLanguage, shareImageUrl, shareMode, t.appName]);
 
-  const handleShareChannel = async (channel: "whatsapp" | "telegram" | "tiktok") => {
+  const handleShareChannel = useCallback(async (channel: "whatsapp" | "telegram" | "tiktok") => {
     if (shareImageUrl) {
       try {
         await handleNativeShare();
@@ -1433,9 +1609,9 @@ function LumeFitApp() {
       tiktok: "https://www.tiktok.com/upload",
     };
     window.open(urlMap[channel], "_blank", "noopener,noreferrer");
-  };
+  }, [activeShareSummary, handleNativeShare, shareImageUrl]);
 
-  const applyGeneratedPlan = () => {
+  const applyGeneratedPlan = useCallback(() => {
     if (!generatedPlan) return;
     const finalizedProfile = {
       ...profile,
@@ -1478,8 +1654,16 @@ function LumeFitApp() {
     setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
     setView("home");
-    setTimeout(() => setShowToast(false), 2400);
-  };
+    setManagedTimeout(() => setShowToast(false), 2400);
+  }, [
+    appLanguage,
+    firstUseAt,
+    generatedPlan,
+    onboardingActivityMap,
+    profile,
+    setManagedTimeout,
+    setupActivity,
+  ]);
 
   const currentMealTitle = localizedMeals[selectedMeal];
 
@@ -1986,55 +2170,9 @@ function LumeFitApp() {
                           <h4 className="text-sm font-semibold">Análises Recentes</h4>
                           <span className="text-xs text-muted-foreground">Últimas 5</span>
                         </div>
-                        <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
+                        <div className="no-scrollbar scroll-touch card-list-contain recent-meals-strip flex gap-3 overflow-x-auto pb-1">
                           {recentAnalyses.map((item) => (
-                            <button
-                              type="button"
-                              key={item.id}
-                              onClick={() => {
-                                const matched: MockMealResult = {
-                                  id: `saved-${item.id}`,
-                                  mealName: item.meal_name,
-                                  cuisineTag: item.nutrition_details.cuisineTag,
-                                  confidence: item.nutrition_details.confidence,
-                                  estimatedKcal: item.calories,
-                                  protein: item.protein,
-                                  carbs: item.carbs,
-                                  fat: item.fat,
-                                  dailyGoalPercent: item.nutrition_details.dailyGoalPercent,
-                                  sodiumMg: item.nutrition_details.sodiumMg,
-                                  fiberG: item.nutrition_details.fiberG,
-                                  sugarsG: item.nutrition_details.sugarsG,
-                                  vitaminAPct: item.nutrition_details.vitaminAPct,
-                                  vitaminCPct: item.nutrition_details.vitaminCPct,
-                                  ironPct: item.nutrition_details.ironPct,
-                                  calciumPct: item.nutrition_details.calciumPct,
-                                  imageSeed: "saved",
-                                  ingredients: item.ingredients,
-                                  insights: item.insights,
-                                };
-                                setPreviewImage(item.image ?? null);
-                                setActiveResult(matched);
-                                setMealStage("result");
-                                setIsViewingSavedAnalysis(true);
-                                setPortionMultiplier(1);
-                              }}
-                              className="w-[82px] shrink-0 text-left"
-                            >
-                              {item.image ? (
-                                <img
-                                  src={item.image}
-                                  alt={item.meal_name}
-                                  className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
-                                  🍽️
-                                </div>
-                              )}
-                              <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
-                            </button>
+                            <RecentAnalysisItem key={item.id} item={item} onOpen={handleOpenSavedAnalysis} />
                           ))}
                         </div>
                       </article>

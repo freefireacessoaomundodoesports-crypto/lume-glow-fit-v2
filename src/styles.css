@@ -174,6 +174,7 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    touch-action: manipulation;
   }
 
   body {
@@ -194,6 +195,46 @@
   textarea::placeholder {
     color: oklch(0.42 0.045 154 / 45%);
   }
+}
+
+button:active,
+.card:active,
+.perf-pressable:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.card-list-contain {
+  contain: layout style paint;
+}
+
+.recent-meals-strip {
+  scroll-snap-type: x mandatory;
+}
+
+.recent-meal-item {
+  scroll-snap-align: start;
+}
+
+[class*="animate-"],
+.glass-card,
+.glass-chip,
+.scan-line,
+.radar-ring,
+.confetti-particle,
+.camera-pulse {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.low-end-device [class*="animate-"] {
+  animation-duration: calc(var(--animation-duration, 1s) * 0.7) !important;
 }
 
 @keyframes lume-gradient {

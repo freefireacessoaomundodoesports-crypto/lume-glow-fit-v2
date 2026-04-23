@@ -381,6 +381,59 @@ function getDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function getEntriesStorageKey(dateKey: string) {
+  return `entries_${dateKey}`;
+}
+
+function isEntriesStorageKey(key: string) {
+  return /^entries_\d{4}-\d{2}-\d{2}$/.test(key);
+}
+
+function toProfileFromUnified(state: UnifiedAppState["profile"]): Profile {
+  const calorieGoal = Math.max(1200, state.daily_calorie_goal || 1400);
+  const activityLevel = state.activity_level || activityLevels[1];
+  const weight = Number(state.weight) || 78;
+  return {
+    name: state.name || "",
+    age: Number(state.age) || 30,
+    city: state.city || "",
+    weight,
+    height: Number(state.height) || 163,
+    targetWeight: Number(state.target_weight) || 68,
+    weeklyGoal: state.goal || weeklyGoals[1],
+    activityLevel,
+    calorieGoal,
+    hydrationGoalMl: calcHydrationGoal(weight, activityLevel),
+    macroGoals: calcMacroGoals(calorieGoal),
+  };
+}
+
+function toUnifiedProfile(profile: Profile, dateJoined: string): UnifiedAppState["profile"] {
+  return {
+    name: profile.name,
+    age: profile.age,
+    city: profile.city,
+    weight: profile.weight,
+    height: profile.height,
+    target_weight: profile.targetWeight,
+    goal: profile.weeklyGoal,
+    activity_level: profile.activityLevel,
+    daily_calorie_goal: profile.calorieGoal,
+    date_joined: dateJoined,
+  };
+}
+
+function summarizeToday(meals: MealEntry[], water: number) {
+  return {
+    calories_consumed: meals.reduce((sum, item) => sum + item.calories, 0),
+    protein: meals.reduce((sum, item) => sum + (item.protein || 0), 0),
+    carbs: meals.reduce((sum, item) => sum + (item.carbs || 0), 0),
+    fat: meals.reduce((sum, item) => sum + (item.fat || 0), 0),
+    water,
+    meals,
+  };
+}
+
 async function compressImageForStorage(imageSource: string) {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const instance = new Image();

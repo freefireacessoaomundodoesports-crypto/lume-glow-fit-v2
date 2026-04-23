@@ -53,7 +53,7 @@ export const Route = createFileRoute("/")({
   component: LumeFitApp,
 });
 
-type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
+type ViewKey = "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 type AppLanguage = "pt" | "en";
@@ -636,6 +636,7 @@ function LumeFitApp() {
   const timeoutIdsRef = useRef<number[]>([]);
   const storageSnapshotRef = useRef<UnifiedAppState | null>(null);
   const hasHydratedFromStorageRef = useRef(false);
+  const isMountedRef = useRef(false);
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
@@ -991,9 +992,15 @@ function LumeFitApp() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       timeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
       timeoutIdsRef.current = [];
+      shareFetchAbortRef.current?.abort();
+      shareFetchAbortRef.current = null;
+      saveMealAbortRef.current?.abort();
+      saveMealAbortRef.current = null;
       if (previewObjectUrlRef.current) {
         URL.revokeObjectURL(previewObjectUrlRef.current);
         previewObjectUrlRef.current = null;

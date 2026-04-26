@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  ArrowLeft,
   Camera,
   Check,
   ChevronDown,
@@ -29,6 +30,16 @@ import {
   UtensilsCrossed,
   Dumbbell,
   Footprints,
+  ChevronRight,
+  Plus,
+  Minus,
+  Trophy,
+  X,
+  Settings,
+  ChevronLeft,
+  Smartphone,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,8 +64,12 @@ export const Route = createFileRoute("/")({
   component: LumeFitApp,
 });
 
-type ViewKey = "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
-type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
+import { AdminPanel, type AdminUser } from "@/components/admin/AdminPanel";
+import { supabase } from "@/lib/supabase";
+import type { Session } from "@supabase/supabase-js";
+
+type ViewKey = "home" | "refeicoes" | "progresso" | "treinos" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan";
+type MealFlowStage = "camera" | "preview" | "analyzing" | "result" | "clarification";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 type AppLanguage = "pt" | "en";
 type AppTheme = "light" | "dark";
@@ -75,6 +90,8 @@ type Profile = {
     carbs: number;
     fat: number;
   };
+  role?: 'admin' | 'user';
+  status?: 'ativo' | 'pendente' | 'bloqueado' | 'setup';
 };
 
 type PersistedState = {
@@ -110,6 +127,7 @@ type UnifiedAppState = {
     activity_level: string;
     daily_calorie_goal: number;
     date_joined: string;
+    email?: string;
   };
   today: {
     calories_consumed: number;
@@ -318,6 +336,75 @@ const uiText = {
     onboardingCurrentWeightLabel: "Peso atual (kg)",
     onboardingTargetWeightLabel: "Peso desejado (kg)",
     onboardingHeightLabel: "Altura (cm)",
+    todayCalories: "Calorias de hoje",
+    goalCalorie: "Meta calórica",
+    goalHydration: "Hidratação diária",
+    goalWater: "água/dia",
+    protein: "Proteína",
+    carbs: "Carboidrato",
+    fat: "Gordura",
+    applyGoals: "Aplicar metas",
+    analyzingFood: "Analisar Comida",
+    mealHistory: "Histórico de Refeições",
+    weightHistory: "Histórico de Peso",
+    currentWeight: "Peso atual",
+    weightGoal: "Meta de peso",
+    addWeight: "Registrar peso",
+    achievements: "Conquistas",
+    motivation: "Motivação",
+    calories: "Calorias",
+    grams: "g",
+    liters: "L",
+    remaining: "restantes",
+    water: "Água",
+    back: "Voltar",
+    save: "Salvar",
+    edit: "Editar",
+    cancel: "Cancelar",
+    addIn: "Adicionar em",
+    analyzeMeal: "Analisar Refeição",
+    takePhotoHint: "Tira uma foto do teu prato e a IA faz o resto ✨",
+    takePhoto: "Tirar Foto",
+    loadGallery: "Carregar da Galeria",
+    recentAnalyses: "Análises Recentes",
+    last5: "Últimas 5",
+    previewMeal: "Pré-visualização da refeição",
+    analyzeThis: "Analisar este prato",
+    chooseAnother: "Escolher outra foto",
+    accuracy: "de precisão",
+    totalEstimate: "Estimativa total",
+    estimatedKcal: "kcal estimadas",
+    basedOnPortions: "Baseado nas porções visíveis no prato",
+    thisPlateIs: "Este prato =",
+    ofDailyGoal: "da tua meta diária",
+    proteins: "Proteínas",
+    carbohydrates: "Carboidratos",
+    fats: "Gorduras",
+    ingredientsIdentified: "Ingredientes Identificados",
+    nutritionalDetails: "Detalhes Nutricionais",
+    sodium: "Sódio",
+    fiber: "Fibra",
+    sugars: "Açúcares",
+    vitaminA: "Vitamina A",
+    vitaminC: "Vitamina C",
+    iron: "Ferro",
+    calcium: "Cálcio",
+    dv: "VD",
+    insightsForYou: "Insights para ti",
+    adjustPortion: "Ajustar Porção",
+    normalPortion: "Porção normal",
+    viewSaved: "Visualização guardada",
+    saving: "A guardar...",
+    addToDiary: "Adicionar ao Diário",
+    analyzeAnother: "Analisar Outro Prato",
+    weekly: "Semanal",
+    keepConsistent: "Mantém a consistência para resultados precisos!",
+    updateWeight: "Atualizar peso atual",
+    weightHint: "Dica: verifica o teu peso a cada mês para manter o plano preciso.",
+    changePlan: "Mudar o meu plano",
+    shareWeightProgress: "Compartilhar peso anterior e atual",
+    logout: "Sair da conta",
+    madeForYou: "Feito para ti",
   },
   en: {
     appName: "LUMEfit",
@@ -356,6 +443,75 @@ const uiText = {
     onboardingCurrentWeightLabel: "Current weight (kg)",
     onboardingTargetWeightLabel: "Target weight (kg)",
     onboardingHeightLabel: "Height (cm)",
+    todayCalories: "Today's Calories",
+    goalCalorie: "Calorie Goal",
+    goalHydration: "Daily Hydration",
+    goalWater: "water/day",
+    protein: "Protein",
+    carbs: "Carbohydrate",
+    fat: "Fat",
+    applyGoals: "Apply Goals",
+    analyzingFood: "Analyze Food",
+    mealHistory: "Meal History",
+    weightHistory: "Weight History",
+    currentWeight: "Current Weight",
+    weightGoal: "Weight Goal",
+    addWeight: "Log weight",
+    achievements: "Achievements",
+    motivation: "Motivation",
+    calories: "Calories",
+    grams: "g",
+    liters: "L",
+    remaining: "remaining",
+    water: "Water",
+    back: "Back",
+    save: "Save",
+    edit: "Edit",
+    cancel: "Cancel",
+    addIn: "Add in",
+    analyzeMeal: "Analyze Meal",
+    takePhotoHint: "Take a photo of your plate and AI does the rest ✨",
+    takePhoto: "Take Photo",
+    loadGallery: "Upload from Gallery",
+    recentAnalyses: "Recent Analyses",
+    last5: "Last 5",
+    previewMeal: "Meal preview",
+    analyzeThis: "Analyze this plate",
+    chooseAnother: "Choose another photo",
+    accuracy: "accuracy",
+    totalEstimate: "Total estimate",
+    estimatedKcal: "estimated kcal",
+    basedOnPortions: "Based on portions visible on the plate",
+    thisPlateIs: "This plate =",
+    ofDailyGoal: "of your daily goal",
+    proteins: "Proteins",
+    carbohydrates: "Carbohydrates",
+    fats: "Fats",
+    ingredientsIdentified: "Ingredients Identified",
+    nutritionalDetails: "Nutritional Details",
+    sodium: "Sodium",
+    fiber: "Fiber",
+    sugars: "Sugars",
+    vitaminA: "Vitamin A",
+    vitaminC: "Vitamin C",
+    iron: "Iron",
+    calcium: "Calcium",
+    dv: "DV",
+    insightsForYou: "Insights for you",
+    adjustPortion: "Adjust Portion",
+    normalPortion: "Normal portion",
+    viewSaved: "Saved view",
+    saving: "Saving...",
+    addToDiary: "Add to Diary",
+    analyzeAnother: "Analyze Another Plate",
+    weekly: "Weekly",
+    keepConsistent: "Keep consistent for accurate results!",
+    updateWeight: "Update current weight",
+    weightHint: "Tip: check your weight every month to keep the plan accurate.",
+    changePlan: "Change my plan",
+    shareWeightProgress: "Share previous and current weight",
+    logout: "Logout",
+    madeForYou: "Made for you",
   },
 } as const;
 
@@ -408,7 +564,7 @@ function toProfileFromUnified(state: UnifiedAppState["profile"]): Profile {
   };
 }
 
-function toUnifiedProfile(profile: Profile, dateJoined: string): UnifiedAppState["profile"] {
+function toUnifiedProfile(profile: Profile, dateJoined: string, email?: string): UnifiedAppState["profile"] {
   return {
     name: profile.name,
     age: profile.age,
@@ -420,6 +576,7 @@ function toUnifiedProfile(profile: Profile, dateJoined: string): UnifiedAppState
     activity_level: profile.activityLevel,
     daily_calorie_goal: profile.calorieGoal,
     date_joined: dateJoined,
+    email
   };
 }
 
@@ -443,7 +600,7 @@ async function compressImageForStorage(imageSource: string) {
   });
 
   const canvas = document.createElement("canvas");
-  const maxSize = 400;
+  const maxSize = 320; // Reduzido para poupar espaço
   const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
   canvas.width = Math.max(1, Math.round(img.width * ratio));
   canvas.height = Math.max(1, Math.round(img.height * ratio));
@@ -452,7 +609,8 @@ async function compressImageForStorage(imageSource: string) {
   if (!ctx) return null;
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  return canvas.toDataURL("image/jpeg", 0.5);
+  // Qualidade reduzida para 0.4 para gerar um "código" (Base64) ultra leve
+  return canvas.toDataURL("image/jpeg", 0.4);
 }
 
 const initialRecentAnalyses: RecentMealAnalysis[] = [];
@@ -607,6 +765,104 @@ function LumeFitApp() {
   const [animatedCarbs, setAnimatedCarbs] = useState(0);
   const [animatedFat, setAnimatedFat] = useState(0);
 
+  const [session, setSession] = useState<Session | null>(null);
+  const [authView, setAuthView] = useState<"login" | "register">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const [showSplash, setShowSplash] = useState(true);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [pendingAnalyses, setPendingAnalyses] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (authView === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (error) throw error;
+      } else {
+        const { error, data } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (error) throw error;
+        
+        if (data.user) {
+          await supabase.from('profiles').insert({
+            id: data.user.id,
+            email: authEmail,
+            name: authEmail.split('@')[0],
+            role: 'user',
+            status: 'setup'
+          });
+        }
+      }
+    } catch (error: any) {
+      if (authView === "login" && error.message.includes("Invalid login credentials")) {
+        setAuthError("Este email não tem conta, crie conta");
+      } else {
+        setToastMessage(error.message);
+        setShowToast(true);
+        setManagedTimeout(() => setShowToast(false), 3000);
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const processOfflineQueue = useCallback(() => {
+    const queue = JSON.parse(localStorage.getItem("lume_offline_queue") || "[]");
+    if (queue.length === 0) return;
+
+    setToastMessage(appLanguage === "en" ? "🌐 Back online! Processing pending meals..." : "🌐 De volta online! A processar refeições pendentes...");
+    setShowToast(true);
+    setManagedTimeout(() => setShowToast(false), 3000);
+
+    const item = queue[0];
+    setPreviewImage(item.image);
+    setActiveResult(pickMockResult(item.name));
+    setMealStage("result");
+    
+    localStorage.removeItem("lume_offline_queue");
+    setPendingAnalyses([]);
+  }, [appLanguage]);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setDeferredPrompt(null);
+        setShowInstallPrompt(false);
+      }
+    } else {
+      setToastMessage(appLanguage === "en" ? "To install: Tap 'Share' then 'Add to Home Screen' 📲" : "Para instalar: Toca em 'Partilhar' e depois em 'Adicionar ao Ecrã Principal' 📲");
+      setShowToast(true);
+      setManagedTimeout(() => setShowToast(false), 5000);
+    }
+  };
+
   const [profile, setProfile] = useState<Profile>({
     name: "",
     age: 30,
@@ -642,20 +898,22 @@ function LumeFitApp() {
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
+  const [aiClarificationQuestion, setAiClarificationQuestion] = useState<string | null>(null);
+  const [userClarificationResponse, setUserClarificationResponse] = useState("");
+  const [previewImageBase64, setPreviewImageBase64] = useState<string | null>(null);
   const planResultRef = useRef<HTMLDivElement | null>(null);
 
   const writeState = useCallback((next: UnifiedAppState) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      // silent fail by requirement
     }
   }, []);
 
   const writeStateDebounced = useCallback((next: UnifiedAppState) => {
     const timeoutId = window.setTimeout(() => {
       writeState(next);
-    }, 1000); // 1 segundo de debounce para salvar no disco
+    }, 1000);
     timeoutIdsRef.current.push(timeoutId);
   }, [writeState]);
 
@@ -687,7 +945,6 @@ function LumeFitApp() {
     try {
       localStorage.setItem(getEntriesStorageKey(dateKey), JSON.stringify(dayEntries));
     } catch {
-      // silent fail by requirement
     }
   }, []);
 
@@ -747,6 +1004,7 @@ function LumeFitApp() {
     timestamp: new Date().toISOString(),
     image,
   });
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   const resetDailyStates = useCallback(() => {
     setEntries([]);
@@ -772,163 +1030,176 @@ function LumeFitApp() {
   }, []);
 
   useEffect(() => {
-    if (hasHydratedFromStorageRef.current) return;
-    hasHydratedFromStorageRef.current = true;
+    if (!session) return;
+    
+    const fetchUserData = async () => {
+      const todayKey = getDateKey();
+      
+      // 1. Buscar Perfil
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
 
-    const todayKey = getDateKey();
-    try {
-      let unifiedState = readStorageState();
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Erro ao buscar perfil:', profileError);
+        return;
+      }
 
-      if (!unifiedState) {
-        const legacy = (() => {
-          try {
-            const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-            return raw ? (JSON.parse(raw) as PersistedState) : {};
-          } catch {
-            return {} as PersistedState;
-          }
-        })();
+      let currentProfile: Profile = profile;
+      let userRole = 'user';
+      let userStatus = 'setup';
+      let onboardingComplete = false;
+      let hasExpired = false;
 
-        const legacyProfile = (() => {
-          if (legacy.profile) return legacy.profile;
-          try {
-            const profileRaw = localStorage.getItem(LEGACY_ONBOARDING_PROFILE_KEY) || localStorage.getItem(LEGACY_PROFILE_KEY);
-            if (!profileRaw) return null;
-            const parsed = JSON.parse(profileRaw) as Partial<Profile> & {
-              target_weight?: number;
-              goal?: string;
-              activity_level?: string;
-              daily_calorie_goal?: number;
-              date_joined?: string;
-            };
-            const base: Profile = {
-              name: parsed.name || "",
-              age: Number(parsed.age) || 30,
-              city: parsed.city || "",
-              weight: Number(parsed.weight) || 78,
-              height: Number(parsed.height) || 163,
-              targetWeight: Number(parsed.targetWeight ?? parsed.target_weight) || 68,
-              weeklyGoal: (parsed.weeklyGoal ?? parsed.goal) || weeklyGoals[1],
-              activityLevel: (parsed.activityLevel ?? parsed.activity_level) || activityLevels[1],
-              calorieGoal: Number(parsed.calorieGoal ?? parsed.daily_calorie_goal) || 1400,
-              hydrationGoalMl: calcHydrationGoal(Number(parsed.weight) || 78, (parsed.activityLevel ?? parsed.activity_level) || activityLevels[1]),
-              macroGoals: calcMacroGoals(Number(parsed.calorieGoal ?? parsed.daily_calorie_goal) || 1400),
-            };
-            return base;
-          } catch {
-            return null;
-          }
-        })();
-
-        const fallbackProfile = legacyProfile || profile;
-        const dateJoined = legacy.firstUseAt || new Date().toISOString();
-        const allLegacyEntries = Array.isArray(legacy.entries) ? legacy.entries : [];
-        const entriesGrouped = allLegacyEntries.reduce<Record<string, MealEntry[]>>((acc, entry) => {
-          const day = entry.timestamp.slice(0, 10) || todayKey;
-          acc[day] = [...(acc[day] || []), entry];
-          return acc;
-        }, {});
-        Object.entries(entriesGrouped).forEach(([day, dayEntries]) => writeEntriesForDate(day, dayEntries));
-
-        unifiedState = {
-          onboarding_complete:
-            Boolean(legacy.onboardingDone) ||
-            (() => {
-              try {
-                return localStorage.getItem(LEGACY_ONBOARDING_COMPLETE_KEY) === "true";
-              } catch {
-                return false;
-              }
-            })(),
-          last_active_date:
-            (() => {
-              try {
-                return localStorage.getItem(LEGACY_LAST_ACTIVE_DATE_KEY) || todayKey;
-              } catch {
-                return todayKey;
-              }
-            })(),
-          profile: toUnifiedProfile(fallbackProfile, dateJoined),
-          today: summarizeToday(entriesGrouped[todayKey] || [], typeof legacy.waterIntakeMl === "number" ? legacy.waterIntakeMl : 0),
-          recent_analyses: Array.isArray(legacy.recentAnalyses)
-            ? legacy.recentAnalyses.slice(0, MAX_RECENT_MEALS)
-            : (() => {
-                try {
-                  const raw = localStorage.getItem(LEGACY_RECENT_MEAL_ANALYSES_KEY);
-                  if (!raw) return [];
-                  const parsed = JSON.parse(raw) as RecentMealAnalysis[];
-                  return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_MEALS) : [];
-                } catch {
-                  return [];
-                }
-              })(),
-          weight_log: [],
-          achievements: [],
-          completed_training_phases: legacy.completedTrainingPhases,
-          previous_weight: legacy.previousWeight,
-          last_seen_at: legacy.lastSeenAt,
-          app_language: legacy.appLanguage,
-          app_theme: legacy.appTheme,
+      if (profileData) {
+        currentProfile = {
+          name: profileData.name || "",
+          age: profileData.age || 30,
+          city: profileData.city || "",
+          weight: Number(profileData.weight) || 78,
+          height: Number(profileData.height) || 163,
+          targetWeight: Number(profileData.target_weight) || 68,
+          weeklyGoal: profileData.weekly_goal || weeklyGoals[1],
+          activityLevel: profileData.activity_level || activityLevels[1],
+          calorieGoal: profileData.calorie_goal || 1400,
+          hydrationGoalMl: profileData.hydration_goal_ml || 2500,
+          macroGoals: calcMacroGoals(profileData.calorie_goal || 1400),
+          role: profileData.role || 'user',
+          status: profileData.status || 'setup',
         };
-
-        try {
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
-          localStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
-          localStorage.removeItem(LEGACY_ONBOARDING_PROFILE_KEY);
-          localStorage.removeItem(LEGACY_LAST_ACTIVE_DATE_KEY);
-          localStorage.removeItem(LEGACY_RECENT_MEAL_ANALYSES_KEY);
-          localStorage.removeItem(LEGACY_PROFILE_KEY);
-        } catch {
-          // silent fail by requirement
+        userRole = profileData.role || 'user';
+        userStatus = profileData.status || 'setup';
+        onboardingComplete = userStatus !== 'setup'; 
+        
+        if (profileData.expiry_date) {
+          const expDate = new Date(profileData.expiry_date).getTime();
+          if (Date.now() > expDate) {
+            hasExpired = true;
+          }
         }
-        writeState(unifiedState);
+        
+        setProfile(currentProfile);
       }
 
-      const isNewDay = unifiedState.last_active_date !== todayKey;
-      const todayEntriesFromStorage = isNewDay ? [] : readEntriesForDate(todayKey);
-      if (isNewDay) writeEntriesForDate(todayKey, []);
+      // 2. Buscar Refeições de Hoje
+      const { data: mealsData } = await supabase
+        .from('meals')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .gte('timestamp', todayKey + 'T00:00:00')
+        .lte('timestamp', todayKey + 'T23:59:59');
 
-      const normalizedState: UnifiedAppState = {
-        ...unifiedState,
-        last_active_date: todayKey,
-        today: summarizeToday(todayEntriesFromStorage, isNewDay ? 0 : unifiedState.today?.water || 0),
-      };
-
-      updateStorageSnapshot(normalizedState);
-      setProfile(toProfileFromUnified(normalizedState.profile));
-      setEntries(todayEntriesFromStorage);
-      setEntriesByDay({ ...readAllEntriesByDay(), [todayKey]: todayEntriesFromStorage });
-      setWaterIntakeMl(normalizedState.today.water || 0);
-      setOnboardingDone(Boolean(normalizedState.onboarding_complete));
-      setFirstUseAt(normalizedState.profile.date_joined || new Date().toISOString());
-      if (typeof normalizedState.previous_weight === "number") setPreviousWeight(normalizedState.previous_weight);
-      if (normalizedState.completed_training_phases) setCompletedTrainingPhases(normalizedState.completed_training_phases);
-      setRecentAnalyses((normalizedState.recent_analyses || []).slice(0, MAX_RECENT_MEALS));
-      setWeightLog(Array.isArray(normalizedState.weight_log) ? normalizedState.weight_log : []);
-      setAchievements(Array.isArray(normalizedState.achievements) ? normalizedState.achievements : []);
-      if (normalizedState.app_language === "pt" || normalizedState.app_language === "en") setAppLanguage(normalizedState.app_language);
-      if (normalizedState.app_theme === "light" || normalizedState.app_theme === "dark") setAppTheme(normalizedState.app_theme);
-
-      if (typeof normalizedState.last_seen_at === "string") {
-        const elapsed = Date.now() - new Date(normalizedState.last_seen_at).getTime();
-        if (elapsed >= 6 * 60 * 60 * 1000) setShowMotivationNotification(true);
+      if (mealsData) {
+        const mappedMeals: MealEntry[] = mealsData.map(m => ({
+          id: m.id,
+          meal: m.meal_type as MealType,
+          foodName: m.food_name,
+          calories: m.calories,
+          protein: Number(m.protein),
+          carbs: Number(m.carbs),
+          fat: Number(m.fat),
+          quantity: Number(m.quantity || 1),
+          timestamp: m.timestamp,
+          photo: m.photo_url
+        }));
+        setEntries(mappedMeals);
       }
-      if (isNewDay) resetDailyStates();
-      setView(normalizedState.onboarding_complete ? "home" : "setup");
-      writeState(normalizedState);
-    } catch {
-      // silent fail by requirement
+
+      // 3. Buscar Água de Hoje
+      const { data: waterData } = await supabase
+        .from('water_logs')
+        .select('amount_ml')
+        .eq('user_id', session.user.id)
+        .gte('timestamp', todayKey + 'T00:00:00')
+        .lte('timestamp', todayKey + 'T23:59:59');
+      
+      if (waterData) {
+        const totalWater = waterData.reduce((acc, curr) => acc + curr.amount_ml, 0);
+        setWaterIntakeMl(totalWater);
+      }
+
+      // 4. Lógica de Acesso
+      if (userRole === 'admin') {
+        setView("home");
+      } else if (hasExpired) {
+        setView("expired");
+      } else if (userStatus === 'bloqueado') {
+        setView("blocked");
+      } else if (userStatus === 'pendente') {
+        setView("waiting_approval");
+      } else if (userStatus === 'setup') {
+        setView("setup");
+      } else if (userStatus === 'ativo' && !profileData?.calorie_goal) {
+        setView("pending_plan");
+      } else {
+        setView("home");
+      }
+      
+      setOnboardingDone(onboardingComplete);
+      setShowSplash(false);
+    };
+
+    fetchUserData();
+  }, [session]);
+
+  // Garantir que Admin nunca fique preso em telas de bloqueio
+  useEffect(() => {
+    if (profile.role === 'admin' && ["waiting_approval", "blocked", "expired"].includes(view)) {
+      setView("home");
     }
-  }, [
-    profile,
-    readAllEntriesByDay,
-    readEntriesForDate,
-    readStorageState,
-    resetDailyStates,
-    updateStorageSnapshot,
-    writeEntriesForDate,
-    writeState,
-  ]);
+  }, [profile.role, view]);
+
+  const handleUpdateWater = async (amount: number) => {
+    const next = Math.max(0, waterIntakeMl + amount);
+    setWaterIntakeMl(next);
+    
+    if (session) {
+      if (amount > 0) {
+        await supabase.from('water_logs').insert({
+          user_id: session.user.id,
+          amount_ml: amount,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        const todayKey = getDateKey();
+        const { data } = await supabase
+          .from('water_logs')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .gte('timestamp', todayKey + 'T00:00:00')
+          .order('timestamp', { ascending: false })
+          .limit(1);
+        
+        if (data && data[0]) {
+          await supabase.from('water_logs').delete().eq('id', data[0].id);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!session || !onboardingDone) return;
+    
+    const saveProfile = async () => {
+      await supabase.from('profiles').update({
+        name: profile.name,
+        age: profile.age,
+        city: profile.city,
+        weight: profile.weight,
+        height: profile.height,
+        target_weight: profile.targetWeight,
+        weekly_goal: profile.weeklyGoal,
+        activity_level: profile.activityLevel,
+        calorie_goal: profile.calorieGoal,
+        hydration_goal_ml: profile.hydrationGoalMl,
+      }).eq('id', session.user.id);
+    };
+
+    const timer = setTimeout(saveProfile, 2000);
+    return () => clearTimeout(timer);
+  }, [profile, session, onboardingDone]);
 
   useEffect(() => {
     const todayKey = getDateKey();
@@ -950,7 +1221,6 @@ function LumeFitApp() {
     };
     updateStorageSnapshot(nextState);
     
-    // Usar a versão debounced para evitar gargalos de IO ao digitar
     const timeoutId = window.setTimeout(() => {
       writeState(nextState);
     }, 800);
@@ -974,6 +1244,14 @@ function LumeFitApp() {
     writeEntriesForDate,
     writeState,
   ]);
+
+  const t = uiText[appLanguage];
+  const localizedAnalysisMessages = ANALYSIS_MESSAGES[appLanguage];
+  const localizedMeals = localizedMealLabels[appLanguage];
+  const localizedShortWeekdays = localizedWeekdays[appLanguage];
+  const localizedQuoteList = localizedQuotes[appLanguage];
+  const localeTag = appLanguage === "en" ? "en-US" : "pt-MZ";
+
 
   useEffect(() => {
     const todayKey = getDateKey();
@@ -1054,27 +1332,74 @@ function LumeFitApp() {
     setAnalysisMessageIndex(0);
 
     const progressTick = setInterval(() => {
-      setAnalysisProgress((prev) => Math.min(100, prev + 2.35));
-    }, 80);
+      setAnalysisProgress((prev) => Math.min(95, prev + 1.2));
+    }, 100);
 
     const msgTick = setInterval(() => {
       setAnalysisMessageIndex((prev) => (prev + 1) % localizedAnalysisMessages.length);
     }, 1200);
 
-    const finish = setTimeout(() => {
-      setAnalysisProgress(100);
-      const selected = pickMockResult(activeResult?.mealName);
-      setActiveResult(selected);
-      setPortionMultiplier(1);
-      setMealStage("result");
-    }, 3500);
+    const runAnalysis = async () => {
+      if (!previewImageBase64) return;
+      try {
+        const { data: aiResult, error } = await supabase.functions.invoke('lumefit-ai', {
+          body: { 
+            type: 'analysis', 
+            image: previewImageBase64,
+            data: { context: userClarificationResponse } 
+          }
+        });
+
+        if (error) throw error;
+
+        if (aiResult.duvida && !userClarificationResponse) {
+          setAiClarificationQuestion(aiResult.duvida);
+          setMealStage("clarification");
+          return;
+        }
+
+        const matched: MockMealResult = {
+          id: `ai-${Date.now()}`,
+          mealName: aiResult.prato,
+          cuisineTag: aiResult.origem,
+          confidence: parseInt(aiResult.precisao) || 95,
+          estimatedKcal: aiResult.total_kcal,
+          protein: aiResult.macros.p,
+          carbs: aiResult.macros.c,
+          fat: aiResult.macros.g,
+          dailyGoalPercent: Math.round((aiResult.total_kcal / profile.calorieGoal) * 100),
+          sodiumMg: aiResult.sodiumMg || 450,
+          fiberG: aiResult.fiberG || 4.5,
+          sugarsG: aiResult.sugarsG || 2.1,
+          vitaminAPct: aiResult.vitaminAPct || 15,
+          vitaminCPct: aiResult.vitaminCPct || 20,
+          ironPct: aiResult.ironPct || 10,
+          calciumPct: aiResult.calciumPct || 8,
+          imageSeed: "ai",
+          ingredients: aiResult.ingredientes.map((i: any) => ({ name: i.nome, calories: i.kcal, note: i.note })),
+          insights: aiResult.insights,
+        };
+
+        setAnalysisProgress(100);
+        setActiveResult(matched);
+        setPortionMultiplier(1);
+        setMealStage("result");
+        setUserClarificationResponse(""); // Reset for next time
+        setAiClarificationQuestion(null);
+      } catch (err: any) {
+        setToastMessage("Erro na análise: " + err.message);
+        setShowToast(true);
+        setMealStage("camera");
+      }
+    };
+
+    runAnalysis();
 
     return () => {
       clearInterval(progressTick);
       clearInterval(msgTick);
-      clearTimeout(finish);
     };
-  }, [mealStage, activeResult?.mealName]);
+  }, [mealStage, previewImage, userClarificationResponse, profile.calorieGoal, localizedAnalysisMessages.length, setManagedTimeout]);
 
   useEffect(() => {
     if (!activeResult || mealStage !== "result") return;
@@ -1104,13 +1429,6 @@ function LumeFitApp() {
       clearTimeout(stopper);
     };
   }, [activeResult, portionMultiplier, mealStage]);
-
-  const t = uiText[appLanguage];
-  const localizedAnalysisMessages = ANALYSIS_MESSAGES[appLanguage];
-  const localizedMeals = localizedMealLabels[appLanguage];
-  const localizedShortWeekdays = localizedWeekdays[appLanguage];
-  const localizedQuoteList = localizedQuotes[appLanguage];
-  const localeTag = appLanguage === "en" ? "en-US" : "pt-MZ";
 
   const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
@@ -1329,6 +1647,24 @@ function LumeFitApp() {
 
   const handleImagePick = useCallback((file: File | null) => {
     if (!file) return;
+
+    if (!navigator.onLine) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        const pendingItem = { id: Date.now(), name: file.name, image: base64 };
+        const newQueue = [pendingItem, ...pendingAnalyses];
+        setPendingAnalyses(newQueue);
+        localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
+        
+        setToastMessage(appLanguage === "en" ? "📥 Offline! Image saved to queue." : "📥 Sem internet! Foto guardada na fila.");
+        setShowToast(true);
+        setManagedTimeout(() => setShowToast(false), 3000);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     if (previewObjectUrlRef.current) {
       URL.revokeObjectURL(previewObjectUrlRef.current);
       previewObjectUrlRef.current = null;
@@ -1336,7 +1672,14 @@ function LumeFitApp() {
     const fileUrl = URL.createObjectURL(file);
     previewObjectUrlRef.current = fileUrl;
     setPreviewImage(fileUrl);
-    setActiveResult(pickMockResult(file.name));
+    
+    // Converter para base64 para a IA
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImageBase64(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
     setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
@@ -1384,32 +1727,24 @@ function LumeFitApp() {
       }
 
       const baseAnalysis = buildRecentAnalysis(activeResult, kcal, compressedImage);
-      let safeList: RecentMealAnalysis[] = [];
-
-      try {
-        safeList = [baseAnalysis, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...(storageSnapshotRef.current || {}), recent_analyses: safeList }));
-      } catch (error) {
-        const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
-        if (isQuota) {
-          const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
-          try {
-            safeList = [withoutImage, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
-            localStorage.setItem(
-              STORAGE_KEY,
-              JSON.stringify({ ...(storageSnapshotRef.current || {}), recent_analyses: safeList }),
-            );
-          } catch {
-            safeList = [withoutImage];
-          }
-        } else {
-          safeList = [buildRecentAnalysis(activeResult, kcal, null)];
-        }
+      
+      // Salvar no Supabase
+      if (session) {
+        const { error: insertError } = await supabase.from('meals').insert({
+          user_id: session.user.id,
+          meal_type: selectedMeal,
+          food_name: activeResult.mealName,
+          calories: kcal,
+          protein,
+          carbs,
+          fat,
+          photo_url: compressedImage,
+          timestamp: nextEntry.timestamp
+        });
+        if (insertError) console.error('Erro ao salvar no Supabase:', insertError);
       }
 
-      if (!controller.signal.aborted && isMountedRef.current) {
-        setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
-      }
+      setRecentAnalyses((prev) => [baseAnalysis, ...prev].slice(0, MAX_RECENT_MEALS));
     })();
 
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
@@ -1461,16 +1796,65 @@ function LumeFitApp() {
     setAnalysisMessageIndex(0);
   }, []);
 
-  const handleGeneratePlan = useCallback(() => {
-    const nextPlan = generatePlan(onboardingPreviewProfile);
-    setGeneratedPlan(nextPlan);
-    setShowPlanPresentation(true);
-    
-    // Pequeno delay para garantir que o elemento foi renderizado antes do scroll
-    setTimeout(() => {
-      planResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-  }, [onboardingPreviewProfile]);
+  const handleGeneratePlan = useCallback(async () => {
+    setAuthLoading(true);
+    try {
+      const { data: aiResult, error } = await supabase.functions.invoke('lumefit-ai', {
+        body: { type: 'onboarding', data: profile }
+      });
+      
+      if (error) throw error;
+      
+      const nextPlan: GeneratedPlan = {
+        summary: aiResult.summary,
+        calorieGoal: aiResult.calorieGoal,
+        hydrationGoalMl: aiResult.hydrationGoalMl,
+        macroGoals: aiResult.macroGoals,
+        motivationalTip: aiResult.motivationalTip
+      };
+
+      setGeneratedPlan(nextPlan);
+      setShowPlanPresentation(true);
+      
+      setTimeout(() => {
+        planResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } catch (err: any) {
+      setToastMessage("Erro ao gerar plano: " + err.message);
+      setShowToast(true);
+      setManagedTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [profile, setManagedTimeout]);
+
+  const handleOnboardingSubmit = useCallback(async () => {
+    if (!session) return;
+    setAuthLoading(true);
+    try {
+      await supabase.from('profiles').update({
+        name: profile.name,
+        age: profile.age,
+        city: profile.city,
+        weight: profile.weight,
+        height: profile.height,
+        target_weight: profile.targetWeight,
+        activity_level: onboardingActivityMap[setupActivity].profileValue,
+        status: profile.role === 'admin' ? 'ativo' : 'pendente'
+      }).eq('id', session.user.id);
+      
+      setView(profile.role === 'admin' ? "home" : "waiting_approval");
+      setToastMessage("Perfil enviado para aprovação! ✨");
+      setShowToast(true);
+      setManagedTimeout(() => setShowToast(false), 3000);
+    } catch (error: any) {
+      setToastMessage("Erro ao enviar perfil: " + error.message);
+      setShowToast(true);
+      setManagedTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [session, profile, setupActivity, onboardingActivityMap, setManagedTimeout]);
 
   const shareSummary =
     appLanguage === "en"
@@ -1933,7 +2317,6 @@ function LumeFitApp() {
         await handleNativeShare();
         return;
       } catch {
-        // fallback below
       }
     }
 
@@ -1963,12 +2346,21 @@ function LumeFitApp() {
       hydrationGoalMl: generatedPlan.hydrationGoalMl,
       macroGoals: generatedPlan.macroGoals,
     }));
-    setWaterIntakeMl(0);
-    setOnboardingDone(true);
-    setShowPlanPresentation(false);
-    setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
-    setShowToast(true);
-    setView("home");
+    // Salvar no Supabase e mudar status para pendente
+    if (session) {
+      void (async () => {
+        await supabase.from('profiles').update({
+          calorie_goal: generatedPlan.calorieGoal,
+          hydration_goal_ml: generatedPlan.hydrationGoalMl,
+          status: 'ativo'
+        }).eq('id', session.user.id);
+        
+        setView("home");
+      })();
+    } else {
+      setView("home");
+    }
+
     setManagedTimeout(() => setShowToast(false), 2400);
   }, [
     appLanguage,
@@ -1984,48 +2376,193 @@ function LumeFitApp() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
-      {view !== "setup" && (
-        <div className="fixed left-4 top-4 z-40">
-          <Button
-            size="icon"
-            variant="outline"
-            className="h-10 w-10 rounded-xl bg-glass"
-            onClick={() => setShowTopMenu((prev) => !prev)}
-            aria-label={t.menuOpenAria}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
-          {showTopMenu ? (
-            <div className="glass-card mt-2 min-w-[220px] rounded-2xl p-2">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
-                onClick={() => {
-                  setShareMode("general");
-                  setShareImageUrl(null);
-                  setShowShareSheet(true);
-                  setShowTopMenu(false);
-                }}
-              >
-                <Share2 className="h-4 w-4" />
-                {t.menuShare}
-              </button>
-              <button
-                type="button"
-                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
-                onClick={() => {
-                  setShowSettingsSheet(true);
-                  setShowTopMenu(false);
-                }}
-              >
-                <Sparkles className="h-4 w-4" />
-                {t.menuSettings}
-              </button>
+     {!session ? (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-foreground animate-in fade-in duration-500">
+          <div className="w-full max-w-sm space-y-8">
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-24 h-24 rounded-3xl bg-white p-4 shadow-2xl animate-bounce-slow">
+                <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tight">LUMEfit</h1>
+                <p className="text-muted-foreground font-medium">Consistência que transforma.</p>
+              </div>
             </div>
-          ) : null}
+
+            <div className="glass-card rounded-[32px] p-8 shadow-xl border border-white/20">
+              <div className="flex p-1 bg-muted/50 rounded-2xl mb-8">
+                <button 
+                  onClick={() => { setAuthView("login"); setAuthError(null); }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${authView === "login" ? "bg-white text-brand-accent-2 shadow-sm" : "text-muted-foreground"}`}
+                >
+                  <LogIn className="w-4 h-4" /> Entrar
+                </button>
+                <button 
+                  onClick={() => { setAuthView("register"); setAuthError(null); }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${authView === "register" ? "bg-white text-brand-accent-2 shadow-sm" : "text-muted-foreground"}`}
+                >
+                  <UserPlus className="w-4 h-4" /> Criar Conta
+                </button>
+              </div>
+
+              <form onSubmit={handleAuth} className="space-y-5">
+                {authError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-center animate-in fade-in zoom-in duration-300">
+                    <p className="text-sm font-bold text-red-500">{authError}</p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Email</label>
+                  <input 
+                    type="email" 
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
+                    placeholder="exemplo@email.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Palavra-passe</label>
+                  <input 
+                    type="password" 
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  disabled={authLoading}
+                  className="w-full h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20 transition-all active:scale-[0.98]"
+                >
+                  {authLoading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    authView === "login" ? "Entrar Agora" : "Começar Jornada"
+                  )}
+                </Button>
+              </form>
+            </div>
+            
+            <p className="text-center text-xs text-muted-foreground">
+              Ao entrar, concordas com os nossos termos de serviço.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {showSplash ? (
+            <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-500">
+              <div className="flex flex-col items-center justify-center animate-in zoom-in fade-in duration-700">
+                <img 
+                  src="/lume-logo.png" 
+                  alt="LUMEfit Logo" 
+                  className="w-56 h-56 object-contain drop-shadow-sm animate-[pulse_2s_ease-in-out_infinite]"
+                />
+                <div className="mt-8 flex flex-col items-center gap-3">
+                  <div className="h-6 w-6 rounded-full border-[3px] border-brand-accent-2 border-t-transparent animate-spin" />
+                  <p className="text-[10px] text-brand-accent-2 font-bold uppercase tracking-widest animate-[pulse_1.5s_ease-in-out_infinite]">
+                    A carregar os dados...
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <section className="mx-auto flex min-h-screen w-full max-w-lg flex-col bg-background px-4 pt-16 pb-28">
+
+      {showInstallPrompt && (
+        <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="w-full max-w-sm glass-card rounded-[32px] p-8 text-center space-y-6 animate-in zoom-in-95 duration-500">
+            <div className="mx-auto w-20 h-20 rounded-2xl bg-white p-3 shadow-xl">
+              <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold">LUMEfit no teu telemóvel</h3>
+              <p className="text-sm text-muted-foreground">
+                Instala o app para uma experiência mais rápida, acesso offline e ecrã inteiro.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 pt-2">
+              <Button 
+                onClick={handleInstallClick}
+                className="h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20"
+              >
+                📲 Instalar App
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowInstallPrompt(false)}
+                className="h-12 rounded-xl text-muted-foreground font-medium"
+              >
+                Continuar na Web
+              </Button>
+            </div>
+          </div>
         </div>
       )}
+
+      <div className="fixed left-4 top-4 z-40 flex items-center gap-4">
+        {view !== "setup" && (
+          <div className="relative">
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 rounded-xl bg-glass"
+              onClick={() => setShowTopMenu((prev) => !prev)}
+              aria-label={t.menuOpenAria}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            {showTopMenu ? (
+              <div className="glass-card absolute left-0 top-12 min-w-[220px] rounded-2xl p-2">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
+                  onClick={() => {
+                    setShareMode("general");
+                    setShareImageUrl(null);
+                    setShowShareSheet(true);
+                    setShowTopMenu(false);
+                  }}
+                >
+                  <Share2 className="h-4 w-4" />
+                  {t.menuShare}
+                </button>
+                <button
+                  type="button"
+                  className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
+                  onClick={() => {
+                    setShowSettingsSheet(true);
+                    setShowTopMenu(false);
+                  }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {t.menuSettings}
+                </button>
+                
+                {profile.role === 'admin' && (
+                  <button
+                    type="button"
+                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30 text-brand-accent-2 font-bold"
+                    onClick={() => {
+                      setIsAdminOpen(true);
+                      setShowTopMenu(false);
+                    }}
+                  >
+                    <CircleUserRound className="h-4 w-4" />
+                    Painel Admin
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+      </div>
 
       {view === "setup" && (
         <section className={shellClass}>
@@ -2038,7 +2575,7 @@ function LumeFitApp() {
               >
                 ✕
               </button>
-              <p className="text-xl font-bold text-brand-accent-2">LumeFit</p>
+              <span className="h-10 w-10" />
               <span className="h-10 w-10" />
             </div>
 
@@ -2230,57 +2767,90 @@ function LumeFitApp() {
               </div>
 
               <div className="space-y-3 pt-2">
-                <Button onClick={handleGeneratePlan} className="h-14 w-full rounded-[24px] text-lg">
-                  <Sparkles className="h-5 w-5" />
-                  Gerar meu Plano com IA
+                <Button 
+                  onClick={handleOnboardingSubmit} 
+                  disabled={authLoading}
+                  className="h-14 w-full rounded-[24px] text-lg bg-brand-accent-2 font-bold"
+                >
+                  {authLoading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>Submeter Dados para Aprovação</>
+                  )}
                 </Button>
                 <p className="px-2 text-center text-sm text-muted-foreground">
-                  Ao continuar, nossa IA processará seus dados para criar um plano nutricional e de treinos personalizado.
+                  Após submeter, a equipa LUMEfit irá validar os teus dados para libertar a análise com IA.
                 </p>
               </div>
             </div>
+          </div>
+        </section>
+      )}
 
-            {showPlanPresentation && generatedPlan ? (
-              <div ref={planResultRef} className="border-t border-glass-border/70 bg-glass/70 p-4">
-                <article className="glass-card rounded-[20px] p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Apresentação do plano</p>
-                  <h3 className="mt-2 text-2xl font-bold text-brand-accent-2">Plano diário recomendado</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{generatedPlan.summary}</p>
+      {view === "pending_plan" && (
+        <section className={shellClass}>
+          <div className="glass-card rounded-[32px] p-8 text-center space-y-6">
+            <div className="mx-auto w-24 h-24 rounded-full bg-brand-accent-1/20 flex items-center justify-center text-4xl animate-bounce-slow">
+              ✨
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold">Perfil Aprovado!</h2>
+              <p className="text-muted-foreground">
+                A tua conta foi validada. Agora a nossa IA está pronta para criar o teu plano personalizado.
+              </p>
+            </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-brand-accent-1/25 bg-glass px-3 py-4">
-                      <p className="text-xs text-muted-foreground">Meta calórica</p>
-                      <p className="text-3xl font-bold">{generatedPlan.calorieGoal}</p>
-                      <p className="text-xs text-muted-foreground">kcal/dia</p>
+            <div className="p-6 rounded-2xl bg-brand-accent-1/10 border border-brand-accent-1/20">
+              <p className="text-sm font-medium">Prepara-te para a transformação! 🚀</p>
+            </div>
+
+            {!showPlanPresentation ? (
+              <Button 
+                onClick={handleGeneratePlan}
+                disabled={authLoading}
+                className="w-full h-16 rounded-2xl bg-brand-accent-2 text-xl font-bold shadow-xl shadow-brand-accent-2/20"
+              >
+                {authLoading ? (
+                  <>
+                    <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    A gerar plano...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-6 w-6" /> Analisar com IA
+                  </>
+                )}
+              </Button>
+            ) : generatedPlan && (
+               <div ref={planResultRef} className="animate-in slide-in-from-bottom-10 duration-700">
+                <article className="glass-card rounded-[24px] p-6 text-left border-2 border-brand-accent-2/30">
+                  <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2">O teu novo plano</p>
+                  <h3 className="mt-2 text-2xl font-bold">Plano Diário Sugerido</h3>
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{generatedPlan.summary}</p>
+
+                  <div className="mt-6 grid grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
+                      <p className="text-xs text-muted-foreground">Calorias</p>
+                      <p className="text-2xl font-bold text-brand-accent-2">{generatedPlan.calorieGoal} kcal</p>
                     </div>
-                    <div className="rounded-2xl border border-brand-accent-1/25 bg-glass px-3 py-4">
-                      <p className="text-xs text-muted-foreground">Hidratação diária</p>
-                      <p className="text-3xl font-bold">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
-                      <p className="text-xs text-muted-foreground">água/dia</p>
+                    <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
+                      <p className="text-xs text-muted-foreground">Hidratação</p>
+                      <p className="text-2xl font-bold text-brand-accent-1">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
-                      <p className="text-xs text-muted-foreground">Proteína</p>
-                      <p className="text-lg font-bold">{generatedPlan.macroGoals.protein}g</p>
+                  {generatedPlan.motivationalTip && (
+                    <div className="mt-6 p-4 rounded-2xl bg-brand-accent-1/5 border-l-4 border-brand-accent-2 italic text-sm">
+                      " {generatedPlan.motivationalTip} "
                     </div>
-                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
-                      <p className="text-xs text-muted-foreground">Carboidrato</p>
-                      <p className="text-lg font-bold">{generatedPlan.macroGoals.carbs}g</p>
-                    </div>
-                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
-                      <p className="text-xs text-muted-foreground">Gordura</p>
-                      <p className="text-lg font-bold">{generatedPlan.macroGoals.fat}g</p>
-                    </div>
-                  </div>
+                  )}
 
-                  <Button onClick={applyGeneratedPlan} className="mt-5 h-12 w-full rounded-2xl">
-                    Aplicar metas
+                  <Button onClick={applyGeneratedPlan} className="mt-8 h-14 w-full rounded-2xl bg-brand-accent-2 font-bold text-lg shadow-lg shadow-brand-accent-2/20">
+                    Iniciar Minha Jornada
                   </Button>
                 </article>
               </div>
-            ) : null}
+            )}
           </div>
         </section>
       )}
@@ -2300,7 +2870,7 @@ function LumeFitApp() {
               {view === "home" && (
                 <>
                   <article className="glass-card mt-4 rounded-xl p-5 text-center">
-                    <h3 className="text-sm text-muted-foreground">Calorias de hoje</h3>
+                    <h3 className="text-sm text-muted-foreground">{t.todayCalories}</h3>
                     <div className="mx-auto mt-4 h-40 w-40">
                       <svg viewBox="0 0 120 120" className="h-full w-full">
                         <defs>
@@ -2336,35 +2906,23 @@ function LumeFitApp() {
                         <p className="text-xs text-muted-foreground">/ {profile.calorieGoal} kcal</p>
                       </div>
                     </div>
-                    <p className="mt-3 text-sm">Restam {remainingCalories} calorias hoje</p>
+                    <p className="mt-3 text-sm">{t.remaining.charAt(0).toUpperCase() + t.remaining.slice(1)} {remainingCalories} {t.calories.toLowerCase()} {appLanguage === "en" ? "today" : "hoje"}</p>
                   </article>
 
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {[
-                      { label: "Proteínas", value: macros.protein },
-                      { label: "Carboidratos", value: macros.carbs },
-                      { label: "Gorduras", value: macros.fat },
+                      { label: t.proteins, value: macros.protein, key: "protein" },
+                      { label: t.carbohydrates, value: macros.carbs, key: "carbs" },
+                      { label: t.fats, value: macros.fat, key: "fat" },
                     ].map((macro) => (
-                      <article key={macro.label} className="glass-card rounded-xl p-3">
+                      <article key={macro.key} className="glass-card rounded-xl p-3">
                         <p className="text-xs text-muted-foreground">{macro.label}</p>
                         <p className="my-2 text-sm font-medium">
-                          {Math.round(macro.value)}g / {profile.macroGoals[macro.label === "Proteínas" ? "protein" : macro.label === "Carboidratos" ? "carbs" : "fat"]}g
+                          {Math.round(macro.value)}g / {profile.macroGoals[macro.key as "protein" | "carbs" | "fat"]}g
                         </p>
                         <Progress
-                          value={
-                            macro.label === "Proteínas"
-                              ? macroProgress.protein
-                              : macro.label === "Carboidratos"
-                                ? macroProgress.carbs
-                                : macroProgress.fat
-                          }
-                          indicatorClassName={
-                            macro.label === "Proteínas"
-                              ? "bg-macro-protein"
-                              : macro.label === "Carboidratos"
-                                ? "bg-macro-carbs"
-                                : "bg-macro-fat"
-                          }
+                          value={macroProgress[macro.key as "protein" | "carbs" | "fat"]}
+                          indicatorClassName={`bg-macro-${macro.key}`}
                         />
                       </article>
                     ))}
@@ -2372,7 +2930,7 @@ function LumeFitApp() {
 
                   <article className="glass-card mt-4 rounded-[20px] p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">Hidratação de Hoje</h3>
+                      <h3 className="text-sm font-semibold">{t.water}</h3>
                       <span className="rounded-full border border-brand-accent-1/30 bg-brand-accent-1/15 px-3 py-1 text-xs font-medium">
                         {(waterIntakeMl / 1000).toFixed(2)}L / {hydrationGoalLiters}L
                       </span>
@@ -2390,21 +2948,19 @@ function LumeFitApp() {
                           Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
                         </p>
                         <Progress value={hydrationPercent} indicatorClassName="bg-hydration" />
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            className="h-10 rounded-xl"
-                            onClick={() => setWaterIntakeMl((prev) => Math.min(profile.hydrationGoalMl, prev + 330))}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdateWater(250)}
+                            className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-accent-3/30 text-brand-accent-2 transition-transform active:scale-90"
                           >
-                            <Droplets className="h-4 w-4" />
-                            +330ml
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="h-10 rounded-xl"
-                            onClick={() => setWaterIntakeMl((prev) => Math.max(0, prev - 50))}
+                            <Plus className="h-6 w-6" />
+                          </button>
+                          <button
+                            onClick={() => handleUpdateWater(-50)}
+                            className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30 text-muted-foreground transition-transform active:scale-90"
                           >
-                            -50ml
-                          </Button>
+                            <Minus className="h-6 w-6" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2444,7 +3000,7 @@ function LumeFitApp() {
                               setMealStage("camera");
                             }}
                           >
-                            + Adicionar
+                            + {appLanguage === "en" ? "Add" : "Adicionar"}
                           </Button>
                           {isOpen && (
                             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
@@ -2535,15 +3091,23 @@ function LumeFitApp() {
                       <article className="glass-card rounded-[20px] p-4 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset]">
                         <img
                           src={previewImage}
-                          alt="Pré-visualização da refeição"
+                          alt={t.previewMeal}
                           className="h-64 w-full rounded-2xl border border-brand-accent-1/40 object-cover"
                         />
                       </article>
 
                       <div className="space-y-3">
-                        <Button className="h-12 w-full rounded-[18px]" onClick={() => setMealStage("analyzing")}>
-                          <Sparkles className="h-4 w-4" />
-                          Analisar este prato
+                        <Button 
+                          className="h-12 w-full rounded-[18px]" 
+                          onClick={() => setMealStage("analyzing")}
+                          disabled={!previewImageBase64}
+                        >
+                          {!previewImageBase64 ? (
+                            <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 mr-2" />
+                          )}
+                          {t.analyzeThis}
                         </Button>
                         <Button
                           variant="outline"
@@ -2553,9 +3117,64 @@ function LumeFitApp() {
                             setMealStage("camera");
                           }}
                         >
-                          Escolher outra foto
+                          {t.chooseAnother}
                         </Button>
                       </div>
+                    </div>
+                  )}
+
+                  {mealStage === "clarification" && (
+                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-500">
+                      <article className="glass-card overflow-hidden rounded-[32px] border-2 border-brand-accent-1/30 shadow-2xl shadow-brand-accent-1/10">
+                        <div className="bg-gradient-to-br from-brand-accent-1/10 to-transparent p-6">
+                          <div className="w-16 h-16 rounded-3xl bg-white shadow-lg flex items-center justify-center text-4xl mb-6 animate-bounce-slow">
+                            🤔
+                          </div>
+                          <h3 className="text-2xl font-bold text-foreground">A IA tem uma dúvida...</h3>
+                          <p className="mt-2 text-sm text-muted-foreground">Para uma análise 100% precisa, preciso de um detalhe:</p>
+                        </div>
+                        
+                        <div className="px-6 pb-6 space-y-6">
+                          <div className="bg-brand-accent-1/5 p-5 rounded-[24px] border-l-4 border-brand-accent-1 relative">
+                            <Sparkles className="absolute -top-2 -right-2 h-6 w-6 text-brand-accent-1/40" />
+                            <p className="text-foreground font-medium italic leading-relaxed">
+                              "{aiClarificationQuestion}"
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent-1/70 ml-1">Tua resposta</label>
+                            <textarea 
+                              value={userClarificationResponse}
+                              onChange={(e) => setUserClarificationResponse(e.target.value)}
+                              placeholder="Ex: É um frango grelhado na air fryer com pouco azeite..."
+                              className="w-full h-36 p-5 rounded-[24px] bg-white/50 border border-glass-border focus:ring-4 focus:ring-brand-accent-1/20 focus:border-brand-accent-1 outline-none text-base transition-all shadow-inner resize-none"
+                            />
+                          </div>
+                          
+                          <div className="flex gap-3 pt-2">
+                            <Button 
+                              variant="outline" 
+                              className="flex-1 h-14 rounded-2xl border-glass-border hover:bg-muted/50 text-muted-foreground font-bold"
+                              onClick={() => {
+                                setUserClarificationResponse("Não tenho a certeza, analisa como preferires.");
+                                setMealStage("analyzing");
+                              }}
+                            >
+                              Pular
+                            </Button>
+                            <Button 
+                              className="flex-[2] h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 font-bold text-lg shadow-xl shadow-brand-accent-2/30 transition-all active:scale-[0.98]"
+                              disabled={!userClarificationResponse.trim()}
+                              onClick={() => {
+                                setMealStage("analyzing");
+                              }}
+                            >
+                              Enviar Resposta
+                            </Button>
+                          </div>
+                        </div>
+                      </article>
                     </div>
                   )}
 
@@ -2572,7 +3191,7 @@ function LumeFitApp() {
                         <h3 className="mt-3 text-xl font-bold">{activeResult.mealName}</h3>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/20 px-3 py-1 text-xs font-medium text-primary">
-                            {activeResult.confidence}% de precisão ✓
+                            {activeResult.confidence}% {t.accuracy} ✓
                           </span>
                           <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
                             {activeResult.cuisineTag}
@@ -2584,11 +3203,11 @@ function LumeFitApp() {
                       </article>
 
                       <article className="glass-card animate-enter rounded-[20px] p-5 text-center">
-                        <p className="text-xs text-muted-foreground">Estimativa total</p>
+                        <p className="text-xs text-muted-foreground">{t.totalEstimate}</p>
                         <p className="mt-1 text-5xl font-bold text-primary">{Math.round(animatedKcal)}</p>
-                        <p className="text-sm font-medium">kcal estimadas</p>
+                        <p className="text-sm font-medium">{t.estimatedKcal}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Baseado nas porções visíveis no prato
+                          {t.basedOnPortions}
                         </p>
                         <div className="mt-4">
                           <div className="h-3 overflow-hidden rounded-full bg-brand-accent-3/40">
@@ -2598,7 +3217,7 @@ function LumeFitApp() {
                             />
                           </div>
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Este prato = {Math.round(activeResult.dailyGoalPercent * portionMultiplier)}% da tua meta diária
+                            {t.thisPlateIs} {Math.round(activeResult.dailyGoalPercent * portionMultiplier)}% {t.ofDailyGoal}
                           </p>
                         </div>
                       </article>
@@ -2607,27 +3226,27 @@ function LumeFitApp() {
                         {[
                           {
                             key: "prot",
-                            label: "Proteínas",
+                            label: t.proteins,
                             value: animatedProtein,
                             target: activeResult.protein * portionMultiplier,
-                            ring: "var(--color-brand-danger)",
-                            bg: "bg-brand-danger/10 border-brand-danger/30",
+                            ring: "var(--color-macro-protein)",
+                            bg: "bg-macro-protein/10 border-macro-protein/30",
                           },
                           {
                             key: "carb",
-                            label: "Carboidratos",
+                            label: t.carbohydrates,
                             value: animatedCarbs,
                             target: activeResult.carbs * portionMultiplier,
-                            ring: "var(--color-brand-warning)",
-                            bg: "bg-brand-warning/10 border-brand-warning/30",
+                            ring: "var(--color-macro-carbs)",
+                            bg: "bg-macro-carbs/10 border-macro-carbs/30",
                           },
                           {
                             key: "fat",
-                            label: "Gorduras",
+                            label: t.fats,
                             value: animatedFat,
                             target: activeResult.fat * portionMultiplier,
-                            ring: "var(--color-brand-success)",
-                            bg: "bg-brand-success/10 border-brand-success/30",
+                            ring: "var(--color-macro-fat)",
+                            bg: "bg-macro-fat/10 border-macro-fat/30",
                           },
                         ].map((macro, index) => {
                           const pct = Math.min(100, (macro.value / Math.max(macro.target, 1)) * 100);
@@ -2661,7 +3280,7 @@ function LumeFitApp() {
                       </div>
 
                       <article className="glass-card rounded-[20px] p-4">
-                        <h4 className="text-sm font-semibold">Ingredientes Identificados</h4>
+                        <h4 className="text-sm font-semibold">{t.ingredientsIdentified}</h4>
                         <div className="mt-3 space-y-2">
                           {activeResult.ingredients.map((item, index) => {
                             const expanded = expandedIngredient === item.name;
@@ -2707,13 +3326,13 @@ function LumeFitApp() {
                         {nutritionOpen ? (
                           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                             {[
-                              `🧂 Sódio: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
-                              `🫀 Fibra: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
-                              `🍬 Açúcares: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
-                              `💊 Vitamina A: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% VD`,
-                              `💊 Vitamina C: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% VD`,
-                              `⚡ Ferro: ${Math.round(activeResult.ironPct * portionMultiplier)}% VD`,
-                              `🦴 Cálcio: ${Math.round(activeResult.calciumPct * portionMultiplier)}% VD`,
+                              `🧂 ${t.sodium}: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
+                              `🫀 ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
+                              `🍬 ${t.sugars}: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
+                              `💊 ${t.vitaminA}: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% ${t.dv}`,
+                              `💊 ${t.vitaminC}: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% ${t.dv}`,
+                              `⚡ ${t.iron}: ${Math.round(activeResult.ironPct * portionMultiplier)}% ${t.dv}`,
+                              `🦴 ${t.calcium}: ${Math.round(activeResult.calciumPct * portionMultiplier)}% ${t.dv}`,
                             ].map((value) => (
                               <div key={value} className="rounded-lg border border-glass-border bg-glass px-3 py-2">
                                 {value}
@@ -2724,7 +3343,7 @@ function LumeFitApp() {
                       </article>
 
                       <article className="glass-card rounded-[20px] border-l-4 border-l-brand-accent-1 p-4">
-                        <h4 className="text-sm font-semibold">💡 Insights para ti</h4>
+                        <h4 className="text-sm font-semibold">💡 {t.insightsForYou}</h4>
                         <div className="mt-3 space-y-2">
                           {activeResult.insights.map((tipItem) => (
                             <div key={tipItem} className="rounded-lg border border-glass-border bg-glass px-3 py-2 text-sm">
@@ -2736,9 +3355,9 @@ function LumeFitApp() {
 
                       <article className="glass-card rounded-[20px] p-4">
                         <div className="mb-3 flex items-center justify-between">
-                          <h4 className="text-sm font-semibold">Ajustar Porção</h4>
+                          <h4 className="text-sm font-semibold">{t.adjustPortion}</h4>
                           <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/15 px-2.5 py-1 text-xs font-medium">
-                            {portionMultiplier}x — Porção normal
+                            {portionMultiplier}x — {t.normalPortion}
                           </span>
                         </div>
 
@@ -2767,13 +3386,13 @@ function LumeFitApp() {
                           >
                             <Check className="h-4 w-4" />
                             {isViewingSavedAnalysis
-                              ? "Visualização guardada"
+                              ? t.viewSaved
                               : isSavingMeal
-                                ? "A guardar..."
-                                : "Adicionar ao Diário"}
+                                ? t.saving
+                                : t.addToDiary}
                           </Button>
                           <Button variant="outline" className="h-10 w-full" onClick={resetMealFlow}>
-                            Analisar Outro Prato
+                            {t.analyzeAnother}
                           </Button>
                         </div>
                       </div>
@@ -2787,9 +3406,9 @@ function LumeFitApp() {
           {view === "progresso" && (
             <>
               <div className="glass-card rounded-xl p-4">
-                <h2 className="text-lg font-semibold">Evolução do peso</h2>
+                <h2 className="text-lg font-semibold">{t.weightHistory}</h2>
                 {weightHistory.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted-foreground">Ainda sem registos de peso — adiciona o teu primeiro! 🌿</p>
+                  <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet — add your first! 🌿" : "Ainda sem registos de peso — adiciona o teu primeiro! 🌿"}</p>
                 ) : (
                   <div className="mt-4 space-y-2">
                     {weightHistory.map((point) => {
@@ -2961,13 +3580,33 @@ function LumeFitApp() {
                       {profile.weight}kg <span className="text-muted-foreground">/ {profile.targetWeight}kg</span>
                     </p>
                   </div>
+                  <div className="rounded-xl border border-glass-border bg-glass p-3 col-span-2">
+                    <p className="text-xs text-muted-foreground">Validade do Acesso</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold">
+                        {profile.role === 'admin' ? "🛡️ Acesso Vitalício (Admin)" : 
+                          (() => {
+                            const expiry = (profile as any).expiry_date || (profile as any).expiryDate;
+                            if (!expiry) return "Pendente";
+                            const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                            return days > 0 ? `${days} dias restantes` : "Acesso Expirado";
+                          })()
+                        }
+                      </p>
+                      {profile.role !== 'admin' && (
+                        <div className="flex h-2 w-16 overflow-hidden rounded-full bg-muted/30">
+                           <div className="h-full bg-brand-accent-2" style={{ width: '100%' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="glass-card mt-4 rounded-xl p-4">
-                <h3 className="text-sm font-semibold">Atualizar peso atual</h3>
+                <h3 className="text-sm font-semibold">{t.updateWeight}</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Dica: verifica o teu peso a cada mês para manter o plano preciso.
+                  {t.weightHint}
                 </p>
                 <div className="mt-3 flex items-center gap-2">
                   <Input
@@ -2993,7 +3632,7 @@ function LumeFitApp() {
                     setView("setup");
                   }}
                 >
-                  Mudar o meu plano
+                  {t.changePlan}
                 </Button>
                 <Button
                   variant="secondary"
@@ -3003,32 +3642,28 @@ function LumeFitApp() {
                     setShowShareSheet(true);
                   }}
                 >
-                  Compartilhar peso anterior e atual
+                  {t.shareWeightProgress}
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={() => {
-                    try {
-                      localStorage.removeItem(STORAGE_KEY);
-                      Object.keys(localStorage)
-                        .filter((key) => isEntriesStorageKey(key))
-                        .forEach((key) => localStorage.removeItem(key));
-                    } catch {
-                      // silent fail
-                    }
-                    setEntries([]);
-                    setRecentAnalyses(initialRecentAnalyses);
-                    setWaterIntakeMl(0);
-                    setOnboardingDone(true);
-                    setShowPlanPresentation(false);
-                    setGeneratedPlan(null);
-                    setView("home");
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.reload();
                   }}
                 >
-                  Logout
+                  {t.logout}
                 </Button>
               </div>
-              <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 • Feito para ti</p>
+                {!window.matchMedia("(display-mode: standalone)").matches && (
+                  <Button 
+                    variant="outline"
+                    onClick={handleInstallClick}
+                    className="w-full h-12 rounded-xl bg-brand-accent-2/5 hover:bg-brand-accent-2/10 text-brand-accent-2 border-brand-accent-2/20 mb-2"
+                  >
+                    📲 Instalar LUMEfit no Telemóvel
+                  </Button>
+                )}
+                <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 • {t.madeForYou}</p>
             </>
           )}
         </section>
@@ -3225,6 +3860,102 @@ function LumeFitApp() {
           ))}
         </div>
       ) : null}
-    </main>
+      {isAdminOpen && (
+        <AdminPanel 
+          onClose={() => setIsAdminOpen(false)}
+          setToastMessage={setToastMessage}
+          setShowToast={setShowToast}
+          setManagedTimeout={setManagedTimeout}
+        />
+      )}
+      {view === "waiting_approval" && profile.role !== 'admin' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
+          <div className="max-w-xs space-y-6 animate-in fade-in zoom-in duration-500">
+            <div className="relative mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-brand-accent-2/10 text-4xl">
+              ⏳
+              <div className="absolute inset-0 rounded-full border-2 border-brand-accent-2 border-t-transparent animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Aguardando Aprovação</h2>
+              <p className="text-sm text-muted-foreground">
+                O seu perfil está em análise pela equipa LUMEfit. <br/>
+                Assim que o seu pagamento for confirmado, terá acesso total ✨
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-glass border border-glass-border">
+              <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2 mb-1">Dica</p>
+              <p className="text-xs text-muted-foreground">Pode fechar o app, nós notificaremos assim que for libertado!</p>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      {view === "blocked" && profile.role !== 'admin' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
+          <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-red-50 text-5xl">
+              🚫
+            </div>
+            <div className="space-y-3">
+              <h2 className="text-2xl font-bold">Acesso Suspenso</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Você foi retirado do acesso do app. <br/>
+                Para regularizar a sua conta, entre em contacto com o suporte da LUMEfit no Instagram.
+              </p>
+            </div>
+            <a 
+              href="https://instagram.com/lumefit.ao" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-3 rounded-2xl bg-gradient-to-r from-purple-500 via-red-500 to-yellow-500 text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
+            >
+              @lumefit no Instagram
+            </a>
+          </div>
+        </div>
+      )}
+
+      {view === "expired" && profile.role !== 'admin' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
+          <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-orange-50 text-5xl">
+              ⚠️
+            </div>
+            <div className="space-y-3">
+              <h2 className="text-2xl font-bold">Plano Expirado</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                O seu tempo de acesso ao app terminou. <br/>
+                Renove o plano para o acesso do app!
+              </p>
+            </div>
+            <a 
+              href="https://instagram.com/lumefit.ao" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-3 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
+            >
+              Renovar no Instagram
+            </a>
+            
+            <div className="pt-4">
+               <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.reload();
+                  }}
+                  className="text-xs font-bold text-muted-foreground underline underline-offset-4"
+               >
+                 Sair da Conta
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+        </section>
+      )}
+    </>
+  )}
+</main>
   );
 }
